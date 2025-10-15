@@ -334,22 +334,22 @@ def chat_completions():
         
         logger.info(f"Using key: {gemini_key[:20]}... | Requests: {key_usage[gemini_key]['requests']}")
         
-        # Собираем всю историю сообщений для Gemini с инструкцией
         contents = []
-        
-        # Добавляем инструкцию для подробных ответов в начало
-        contents.append({
-            "role": "user",
-            "parts": [{"text": DETAILED_INSTRUCTION}]
-        })
-        
-        # Добавляем остальные сообщения
-        for msg in data["messages"]:
-            role = "user" if msg["role"] == "user" else "model"
-            contents.append({
-                "role": role,
-                "parts": [{"text": msg["content"]}]
-            })
+system_instruction = DETAILED_INSTRUCTION
+
+# Формируем историю сообщений
+for msg in data["messages"]:
+    role = "user" if msg["role"] == "user" else "model"
+    contents.append({
+        "role": role,
+        "parts": [{"text": msg["content"]}]
+    })
+
+gemini_data = {
+    "contents": contents,
+    "system_instruction": {
+        "parts": [{"text": system_instruction}]
+    },
         
         # Рассчитываем max_tokens с учетом лимитов Gemini
         requested_tokens = data.get("max_tokens", DEFAULT_OUTPUT_TOKENS)
