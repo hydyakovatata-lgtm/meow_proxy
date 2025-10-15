@@ -1,12 +1,10 @@
-import logging
-logging.basicConfig(level=logging.DEBUG)
+import os
 from flask import Flask, request, jsonify
 import requests
 import random
 from datetime import datetime
 import logging
 import urllib3
-import os  
 
 # Отключаем предупреждения SSL
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -22,7 +20,7 @@ GEMINI_KEYS = [key.strip().strip('"').strip("'") for key in os.getenv('GEMINI_KE
 YOUR_MASTER_KEY = os.getenv('MASTER_KEY', '')
 
 # Проверка ключей
-if not GEMINI_KEYS or GEMINI_KEYS == ['']:
+if not GEMINI_KEYS:
     logger.error("❌ No Gemini keys found in environment variables")
     exit(1)
     
@@ -32,26 +30,23 @@ if not YOUR_MASTER_KEY:
 
 key_usage = {key: {'requests': 0, 'last_used': None, 'errors': 0} for key in GEMINI_KEYS}
 
-# Конфигурация Gemini 2.5 Pro
-GEMINI_MODEL = "gemini-2.5-pro"
+# Конфигурация Gemini
+GEMINI_MODEL = "gemini-2.0-flash-exp"
 MAX_INPUT_TOKENS = 1048576    
 MAX_OUTPUT_TOKENS = 65536     
 DEFAULT_OUTPUT_TOKENS = 60000  
 
-# Инструкция для подробных ответов
-DETAILED_INSTRUCTION = """You are PROHIBITED from describing the thoughts, actions and any words of {{user}}. You are only allowed to describe the consequences of {{user}}'s actions or characters that perform some action on the {{user}}. You must NEVER write {{user}}'s dialogues, actions and thoughts under any circumstances, as they are off-limits; you only write for {{char}} and others.
-Write EXTREMELY DETAILED and expansive responses in RUSSIAN.
-Minimum response length: 3000+ words.
-Describe: details, emotions, environment, dialogues, sensations, character thoughts.
-Use rich vocabulary and literary style.
-Always develop the story and add new narrative elements.
-Focus on sensory descriptions - smells, sounds, textures, tastes.
-Include internal monologues and character reflections.
-Create immersive atmospheric descriptions.
-Expand on subplots and secondary characters.
-Never be concise - always elaborate and expand.You are required to adhere to the following
-settings.
-"""
+# Инструкция для модели
+DETAILED_INSTRUCTION = """ТЫ НИКОГДА не описываешь мысли, действия или слова пользователя {{user}}. 
+Ты описываешь ТОЛЬКО действия персонажа {{char}} и других NPC.
+
+ПРАВИЛА:
+1. НИКОГДА не пиши за {{user}} - ни диалоги, ни действия, ни мысли
+2. Пиши детальные ответы на русском
+3. Персонажи самостоятельны - у них свои цели и мнения
+4. Мир живой - возможны неожиданные события и последствия
+
+ЗАПРЕЩЕНО писать за {{user}}!"""
 
 class KeyBalancer:
     def get_best_key(self):
@@ -91,7 +86,6 @@ def list_engines():
 
 @app.route('/v1/completions', methods=['POST'])
 def completions():
-    # JanitorAI уже использует новый формат, просто передаем в chat_completions
     logger.info("JanitorAI using chat format, redirecting to chat_completions")
     return chat_completions()
 
@@ -133,11 +127,10 @@ def chat_completions():
                 "parts": [{"text": system_instruction}]
             },
             "generationConfig": {
-                "temperature": data.get("temperature", 0.9),  # Увеличил для креативности
                 "maxOutputTokens": max_output_tokens,
-                "topP": data.get("top_p", 0.95),            # Увеличил для разнообразия
-                "topK": data.get("top_k", 60),              # Увеличил для богатства выбора
+                # JanitorAI сам передает temperature, top_p, etc через data.get()
             },
+            # ПОЛНОЕ ОТКЛЮЧЕНИЕ ЦЕНЗУРЫ
             "safetySettings": [
                 {
                     "category": "HARM_CATEGORY_HARASSMENT",
@@ -158,7 +151,7 @@ def chat_completions():
             ]
         }
         
-        # Отправка к Gemini 2.5 Pro
+        # Отправка к Gemini
         response = requests.post(
             f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent?key={gemini_key}",
             json=gemini_data,
@@ -210,7 +203,7 @@ def chat_completions():
             }
         }
         
-        logger.info(f"✅ Success! Input: {total_input_chars} chars, Output: {len(response_text)} chars, Max tokens: {max_output_tokens}")
+        logger.info(f"✅ Success! Input: {total_input_chars} chars, Output: {len(response_text)} chars")
         return jsonify(openai_format)
         
     except Exception as e:
@@ -220,7 +213,6 @@ def chat_completions():
 # ===== АУТЕНТИФИКАЦИЯ =====
 @app.before_request
 def authenticate():
-    # Разрешаем OPTIONS запросы без аутентификации
     if request.method == 'OPTIONS':
         return None
         
@@ -237,7 +229,7 @@ def authenticate():
 def after_request(response):
     response.headers.add('Access-Control-Allow-Origin', '*')
     response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
-    response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
+    response.headers.add('Access-Control-Allow-Methods', 'GET,POST,OPTIONS')
     return response
 
 # ===== ИНФОРМАЦИЯ О МОДЕЛИ =====
@@ -250,14 +242,54 @@ def model_info():
         "features": ["large_context", "multimodal", "reasoning"]
     })
 
+# ===== HEALTH CHECK =====
+@app.route('/health', methods=['GET'])
+def health():
+    return jsonify({
+        "status": "ok", 
+        "service": "Gemini Proxy",
+        "timestamp": datetime.now().isoformat(),
+        "keys_available": len(GEMINI_KEYS)
+    })
+
+# ===== ГЛАВНАЯ СТРАНИЦА =====
+@app.route('/')
+def home():
+    return """
+    <html>
+        <head>
+            <title>🚀 Gemini Proxy API</title>
+            <style>
+                body { font-family: Arial, sans-serif; max-width: 800px; margin: 40px auto; padding: 20px; }
+                h1 { color: #333; }
+                ul { line-height: 1.6; }
+                a { color: #007bff; text-decoration: none; }
+                a:hover { text-decoration: underline; }
+            </style>
+        </head>
+        <body>
+            <h1>🚀 Gemini Proxy API</h1>
+            <p>Server is running successfully! ✅</p>
+            <p>Available endpoints:</p>
+            <ul>
+                <li><a href="/health">/health</a> - Status check</li>
+                <li><a href="/v1/models">/v1/models</a> - List models</li>
+                <li>POST /v1/chat/completions - Main chat API</li>
+                <li>POST /v1/completions - JanitorAI compatibility</li>
+            </ul>
+            <p><strong>Usage:</strong> Set API URL to <code>https://meow-meow-mme0.onrender.com/v1</code> in SillyTavern/JanitorAI</p>
+        </body>
+    </html>
+    """
+
 if __name__ == '__main__':
     print("🚀 Production Gemini Proxy starting...")
     print(f"📊 Available keys: {len(GEMINI_KEYS)}")
-    print(f"🔑 Your master key: {YOUR_MASTER_KEY}")
+    print(f"🔑 Your master key: {YOUR_MASTER_KEY[:10]}...")
     print(f"🤖 Model: {GEMINI_MODEL}")
     print(f"📖 Context: {MAX_INPUT_TOKENS:,} tokens")
     print(f"📝 Output: {MAX_OUTPUT_TOKENS:,} tokens")
-    print("📍 Endpoint: http://localhost:5000/v1")
-    print("🎯 Production server: Waitress")
-    from waitress import serve
-    serve(app, host='0.0.0.0', port=5000, threads=10)
+    print("📍 Endpoint: https://meow-meow-mme0.onrender.com/v1")
+    
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port, debug=False)
