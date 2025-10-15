@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 
 # ===== КОНФИГУРАЦИЯ =====
-GEMINI_KEYS = os.getenv('GEMINI_KEYS', '').split(',')
+gemini_keys = [key.strip().strip('"').strip("'") for key in os.getenv('GEMINI_KEYS', '').split(',') if key.strip()]
 YOUR_MASTER_KEY = os.getenv('MASTER_KEY', '')
 
 # Проверка ключей
