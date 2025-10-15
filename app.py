@@ -2,12 +2,11 @@ import os
 from flask import Flask, request, jsonify
 import requests
 import random
-from datetime import datetime
+from datetime import datetime, timedelta
 import logging
-import urllib3
-
-# Отключаем предупреждения SSL
-urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+import certifi
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO)
@@ -15,26 +14,29 @@ logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 
+# Rate-limiting для предотвращения abuse
+limiter = Limiter(get_remote_address, app=app, default_limits=["200 per day", "50 per hour"])
+
 # ===== КОНФИГУРАЦИЯ =====
-GEMINI_KEYS = [key.strip().strip('"').strip("'") for key in os.getenv('GEMINI_KEYS', '').split(',') if key.strip()]
+GEMINI_KEYS = [
+    key.strip().strip('"').strip("'")
+    for key in os.getenv('GEMINI_KEYS', '').split(',')
+    if key.strip()
+]
 YOUR_MASTER_KEY = os.getenv('MASTER_KEY', '')
+GEMINI_MODEL = os.getenv('GEMINI_MODEL', 'gemini-2.5-pro')
+MAX_INPUT_TOKENS = int(os.getenv('MAX_INPUT_TOKENS', 1048576))
+MAX_OUTPUT_TOKENS = int(os.getenv('MAX_OUTPUT_TOKENS', 65536))
+DEFAULT_OUTPUT_TOKENS = int(os.getenv('DEFAULT_OUTPUT_TOKENS', 60000))
 
 # Проверка ключей
 if not GEMINI_KEYS:
-    logger.error("❌ No Gemini keys found in environment variables")
-    exit(1)
-    
+    raise ValueError("❌ No Gemini keys found in environment variables")
+
 if not YOUR_MASTER_KEY:
-    logger.error("❌ No master key found in environment variables") 
-    exit(1)
+    raise ValueError("❌ No master key found in environment variables")
 
 key_usage = {key: {'requests': 0, 'last_used': None, 'errors': 0} for key in GEMINI_KEYS}
-
-# Конфигурация Gemini
-GEMINI_MODEL = "gemini-2.5-pro"
-MAX_INPUT_TOKENS = 1048576    
-MAX_OUTPUT_TOKENS = 65536     
-DEFAULT_OUTPUT_TOKENS = 60000  
 
 # Инструкция для модели
 DETAILED_INSTRUCTION = """You are ABSOLUTELY FORBIDDEN from describing the thoughts, actions, or words of the user {{user}}.
@@ -56,13 +58,21 @@ TEXT FORMATTING:
 STRICTLY PROHIBITED to write for {{user}}!"""
 
 class KeyBalancer:
+    """
+    Балансировщик ключей с учетом ошибок и cooldown.
+    """
+    def __init__(self):
+        self.cooldown_period = timedelta(minutes=5)
+
     def get_best_key(self):
-        available_keys = [k for k, v in key_usage.items() if v['errors'] < 3]
+        now = datetime.now()
+        available_keys = [
+            k for k, v in key_usage.items()
+            if v['errors'] < 3 and (v['last_used'] is None or now - datetime.fromisoformat(v['last_used']) > self.cooldown_period)
+        ]
         if not available_keys:
-            available_keys = GEMINI_KEYS
+            available_keys = GEMINI_KEYS  # Fallback на все ключи
         key = min(available_keys, key=lambda k: key_usage[k]['requests'])
-        # Очистка ключа от лишних символов
-        key = key.strip().strip('"').strip("'")
         return key
 
 balancer = KeyBalancer()
@@ -70,12 +80,13 @@ balancer = KeyBalancer()
 # ===== ENDPOINT ДЛЯ SILLYTAVERN =====
 @app.route('/v1/models', methods=['GET'])
 def list_models():
+    """Возвращает список доступных моделей."""
     return jsonify({
         "object": "list",
         "data": [
             {
                 "id": GEMINI_MODEL,
-                "object": "model", 
+                "object": "model",
                 "created": 1686935000,
                 "owned_by": "google",
                 "limits": {
@@ -89,30 +100,34 @@ def list_models():
 # ===== ENDPOINTS ДЛЯ JANITORAI =====
 @app.route('/v1/engines', methods=['GET'])
 def list_engines():
+    """Аналог list_models для совместимости."""
     return list_models()
 
 @app.route('/v1/completions', methods=['POST'])
 def completions():
+    """Перенаправление на chat_completions для совместимости с JanitorAI."""
     logger.info("JanitorAI using chat format, redirecting to chat_completions")
     return chat_completions()
 
 # ===== OPENAI-СОВМЕСТИМЫЙ API =====
 @app.route('/v1/chat/completions', methods=['POST', 'OPTIONS'])
+@limiter.limit("10 per minute")  # Лимит на запросы для этого эндпоинта
 def chat_completions():
+    """OpenAI-совместимый эндпоинт для генерации чата через Gemini."""
     if request.method == 'OPTIONS':
         return '', 200
-        
+
     try:
         data = request.json
         if not data or 'messages' not in data:
             return jsonify({"error": "Invalid request format"}), 400
-        
+
         gemini_key = balancer.get_best_key()
         key_usage[gemini_key]['requests'] += 1
         key_usage[gemini_key]['last_used'] = datetime.now().isoformat()
-        
+
         logger.info(f"Using key: {gemini_key[:20]}... | Requests: {key_usage[gemini_key]['requests']}")
-        
+
         contents = []
         system_instruction = DETAILED_INSTRUCTION
 
@@ -127,7 +142,7 @@ def chat_completions():
         # Рассчитываем max_tokens с учетом лимитов Gemini
         requested_tokens = data.get("max_tokens", DEFAULT_OUTPUT_TOKENS)
         max_output_tokens = min(requested_tokens, MAX_OUTPUT_TOKENS)
-        
+
         gemini_data = {
             "contents": contents,
             "system_instruction": {
@@ -145,7 +160,7 @@ def chat_completions():
                 },
                 {
                     "category": "HARM_CATEGORY_HATE_SPEECH",
-                    "threshold": "BLOCK_NONE" 
+                    "threshold": "BLOCK_NONE"
                 },
                 {
                     "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT",
@@ -157,42 +172,43 @@ def chat_completions():
                 }
             ]
         }
-        
-        # Отправка к Gemini
+
+        # Отправка к Gemini с верификацией SSL
         response = requests.post(
             f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent?key={gemini_key}",
             json=gemini_data,
             headers={'Content-Type': 'application/json'},
             timeout=120,
-            verify=False
+            verify=certifi.where()
         )
-        
+
         if response.status_code == 429:
             key_usage[gemini_key]['errors'] += 1
-            logger.warning(f"Rate limit for key: {gemini_key[:20]}...")
-            return chat_completions()
-            
+            key_usage[gemini_key]['last_used'] = datetime.now().isoformat()  # Для cooldown
+            logger.warning(f"Rate limit for key: {gemini_key[:20]}... Switching key.")
+            return chat_completions()  # Рекурсия, но с cooldown для предотвращения петли
+
         if response.status_code != 200:
             key_usage[gemini_key]['errors'] += 1
             logger.error(f"Gemini API error {response.status_code} for key: {gemini_key[:20]}...")
             return jsonify({"error": f"Gemini API error: {response.status_code}"}), 500
-            
+
         gemini_response = response.json()
-        
-        if ('candidates' not in gemini_response or 
-            not gemini_response['candidates'] or 
+
+        if ('candidates' not in gemini_response or
+            not gemini_response['candidates'] or
             'content' not in gemini_response['candidates'][0] or
             'parts' not in gemini_response['candidates'][0]['content']):
             logger.error(f"Invalid Gemini response structure: {gemini_response}")
             return jsonify({"error": "Invalid response from Gemini API"}), 500
-            
+
         response_text = gemini_response["candidates"][0]["content"]["parts"][0]["text"]
-        
+
         total_input_chars = sum(len(msg["content"]) for msg in data["messages"])
-        
+
         openai_format = {
             "id": f"chatcmpl-{random.randint(1000,9999)}",
-            "object": "chat.completion", 
+            "object": "chat.completion",
             "created": int(datetime.now().timestamp()),
             "model": GEMINI_MODEL,
             "choices": [{
@@ -209,12 +225,16 @@ def chat_completions():
                 "total_tokens": (total_input_chars + len(response_text)) // 4
             }
         }
-        
+
         logger.info(f"✅ Success! Input: {total_input_chars} chars, Output: {len(response_text)} chars")
         return jsonify(openai_format)
-        
+
+    except requests.Timeout:
+        logger.error(f"Timeout for key: {gemini_key}")
+        key_usage[gemini_key]['errors'] += 1
+        return chat_completions()
     except Exception as e:
-        logger.error(f"❌ Error: {e}")
+        logger.exception(f"❌ Unexpected error: {e}")
         return jsonify({"error": str(e)}), 500
 
 # ===== АУТЕНТИФИКАЦИЯ =====
@@ -222,7 +242,7 @@ def chat_completions():
 def authenticate():
     if request.method == 'OPTIONS':
         return None
-        
+
     if request.endpoint in ['chat_completions', 'list_models', 'completions']:
         auth_header = request.headers.get('Authorization')
         if not auth_header or not auth_header.startswith('Bearer '):
@@ -234,7 +254,7 @@ def authenticate():
 # ===== CORS =====
 @app.after_request
 def after_request(response):
-    response.headers.add('Access-Control-Allow-Origin', '*')
+    response.headers.add('Access-Control-Allow-Origin', '*')  # Для production ограничьте origins
     response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
     response.headers.add('Access-Control-Allow-Methods', 'GET,POST,OPTIONS')
     return response
@@ -242,6 +262,7 @@ def after_request(response):
 # ===== ИНФОРМАЦИЯ О МОДЕЛИ =====
 @app.route('/v1/model-info', methods=['GET'])
 def model_info():
+    """Информация о модели."""
     return jsonify({
         "model": GEMINI_MODEL,
         "max_input_tokens": MAX_INPUT_TOKENS,
@@ -252,16 +273,19 @@ def model_info():
 # ===== HEALTH CHECK =====
 @app.route('/health', methods=['GET'])
 def health():
+    """Проверка статуса сервиса."""
     return jsonify({
-        "status": "ok", 
+        "status": "ok",
         "service": "Gemini Proxy",
         "timestamp": datetime.now().isoformat(),
-        "keys_available": len(GEMINI_KEYS)
+        "keys_available": len(GEMINI_KEYS),
+        "key_usage_summary": {k: v['requests'] for k, v in key_usage.items()}  # Без ключей
     })
 
 # ===== ГЛАВНАЯ СТРАНИЦА =====
 @app.route('/')
 def home():
+    """Главная страница с информацией."""
     return """
     <html>
         <head>
@@ -297,6 +321,6 @@ if __name__ == '__main__':
     print(f"📖 Context: {MAX_INPUT_TOKENS:,} tokens")
     print(f"📝 Output: {MAX_OUTPUT_TOKENS:,} tokens")
     print("📍 Endpoint: https://meow-meow-mme0.onrender.com/v1")
-    
+
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=False)
