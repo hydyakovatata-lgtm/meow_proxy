@@ -336,6 +336,9 @@ def chat_completions():
         
         contents = []
 system_instruction = DETAILED_INSTRUCTION
+except Exception as e:
+    logger.error(f"Error in processing request: {e}")
+    return jsonify({"error": "Internal server error"}), 500
 
 # Формируем историю сообщений
 for msg in data["messages"]:
