@@ -5,17 +5,12 @@ import random
 from datetime import datetime, timedelta
 import logging
 import certifi
-from flask_limiter import Limiter
-from flask_limiter.util import get_remote_address
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
-
-# Rate-limiting для предотвращения abuse
-limiter = Limiter(get_remote_address, app=app, default_limits=["200 per day", "50 per hour"])
 
 # ===== КОНФИГУРАЦИЯ =====
 GEMINI_KEYS = [
@@ -111,7 +106,6 @@ def completions():
 
 # ===== OPENAI-СОВМЕСТИМЫЙ API =====
 @app.route('/v1/chat/completions', methods=['POST', 'OPTIONS'])
-@limiter.limit("10 per minute")  # Лимит на запросы для этого эндпоинта
 def chat_completions():
     """OpenAI-совместимый эндпоинт для генерации чата через Gemini."""
     if request.method == 'OPTIONS':
