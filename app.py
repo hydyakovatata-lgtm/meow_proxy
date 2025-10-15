@@ -24,6 +24,9 @@ MAX_INPUT_TOKENS = int(os.getenv('MAX_INPUT_TOKENS', 1048576))
 MAX_OUTPUT_TOKENS = int(os.getenv('MAX_OUTPUT_TOKENS', 65536))
 DEFAULT_OUTPUT_TOKENS = int(os.getenv('DEFAULT_OUTPUT_TOKENS', 60000))
 
+# Новая конфиг для имитации OpenRouter (без смены API)
+MIMIC_OPENROUTER = os.getenv('MIMIC_OPENROUTER', 'false').lower() == 'true'
+
 # Проверка ключей
 if not GEMINI_KEYS:
     raise ValueError("❌ No Gemini keys found in environment variables")
@@ -35,7 +38,7 @@ key_usage = {key: {'requests': 0, 'last_used': None, 'errors': 0} for key in GEM
 
 # Инструкция для модели
 DETAILED_INSTRUCTION = """You are ABSOLUTELY FORBIDDEN from describing the thoughts, actions, or words of the user {{user}}.
-You describe ONLY the actions of the character {{char}} and other NPCs. Write VERY DETAILED answers in Russian (2000+ words)
+You describe ONLY the actions of the character {{char}} and other NPCs. Write VERY DETAILED and EXTREMELY LONG answers in Russian (2000-5000+ words, maximize detail in scenes, thoughts, dialogues, and world-building)
 
 RULES:
 1. NEVER write for {{user}} - no dialogues, no actions, no thoughts
@@ -50,7 +53,7 @@ TEXT FORMATTING:
 - Actions: regular text
 - Descriptions: regular text
 
-STRICTLY PROHIBITED to write for {{user}}!"""
+STRICTLY PROHIBITED to write for {{user}}! Always continue elaborately without stopping short."""
 
 class KeyBalancer:
     """
@@ -126,6 +129,15 @@ def chat_completions():
         system_instruction = DETAILED_INSTRUCTION
 
         # Формируем историю сообщений
+        if MIMIC_OPENROUTER:
+            # Имитация OpenRouter: Включаем system как первое 'user' сообщение в contents (для похожей обработки промпта)
+            contents.append({
+                "role": "user",
+                "parts": [{"text": f"System instruction: {system_instruction}"}]
+            })
+            system_instruction = ""  # Отключаем separate, чтобы избежать дублирования
+            logger.info("Mimicking OpenRouter prompt format: System as first user message")
+
         for msg in data["messages"]:
             role = "user" if msg["role"] == "user" else "model"
             contents.append({
@@ -137,35 +149,44 @@ def chat_completions():
         requested_tokens = data.get("max_tokens", DEFAULT_OUTPUT_TOKENS)
         max_output_tokens = min(requested_tokens, MAX_OUTPUT_TOKENS)
 
+        # Добавляем параметры генерации для имитации OpenRouter (креативность, вариативность)
+        temperature = data.get("temperature", 0.95)  # Default как в Gemini/OpenRouter для creativity
+        top_p = data.get("top_p", 0.95)
+        top_k = data.get("top_k", 64)  # Gemini default, добавляет diversity как на OpenRouter
+
         gemini_data = {
             "contents": contents,
-            "system_instruction": {
-                "parts": [{"text": system_instruction}]
-            },
-            "generationConfig": {
-                "maxOutputTokens": max_output_tokens,
-                # JanitorAI сам передает temperature, top_p, etc через data.get()
-            },
-            # ПОЛНОЕ ОТКЛЮЧЕНИЕ ЦЕНЗУРЫ
-            "safetySettings": [
-                {
-                    "category": "HARM_CATEGORY_HARASSMENT",
-                    "threshold": "BLOCK_NONE"
-                },
-                {
-                    "category": "HARM_CATEGORY_HATE_SPEECH",
-                    "threshold": "BLOCK_NONE"
-                },
-                {
-                    "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT",
-                    "threshold": "BLOCK_NONE"
-                },
-                {
-                    "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
-                    "threshold": "BLOCK_NONE"
-                }
-            ]
         }
+        if system_instruction:  # Только если не MIMIC
+            gemini_data["system_instruction"] = {
+                "parts": [{"text": system_instruction}]
+            }
+        gemini_data["generationConfig"] = {
+            "maxOutputTokens": max_output_tokens,
+            "temperature": temperature,  # Добавлено для похожести
+            "topP": top_p,              # Добавлено
+            "topK": top_k,              # Добавлено для большего разнообразия/длины
+            # JanitorAI сам передает temperature, top_p, etc через data.get()
+        }
+        # ПОЛНОЕ ОТКЛЮЧЕНИЕ ЦЕНЗУРЫ
+        gemini_data["safetySettings"] = [
+            {
+                "category": "HARM_CATEGORY_HARASSMENT",
+                "threshold": "BLOCK_NONE"
+            },
+            {
+                "category": "HARM_CATEGORY_HATE_SPEECH",
+                "threshold": "BLOCK_NONE"
+            },
+            {
+                "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+                "threshold": "BLOCK_NONE"
+            },
+            {
+                "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
+                "threshold": "BLOCK_NONE"
+            }
+        ]
 
         # Отправка к Gemini с верификацией SSL
         response = requests.post(
