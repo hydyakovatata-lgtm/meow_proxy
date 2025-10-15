@@ -37,16 +37,16 @@ MAX_OUTPUT_TOKENS = 65536
 DEFAULT_OUTPUT_TOKENS = 60000  
 
 # Инструкция для модели
-DETAILED_INSTRUCTION = """ТЫ НИКОГДА не описываешь мысли, действия или слова пользователя {{user}}. 
-Ты описываешь ТОЛЬКО действия персонажа {{char}} и других NPC.
+DETAILED_INSTRUCTION = """You are ABSOLUTELY FORBIDDEN from describing the thoughts, actions, or words of the user {{user}}.
+You describe ONLY the actions of the character {{char}} and other NPCs.
 
-ПРАВИЛА:
-1. НИКОГДА не пиши за {{user}} - ни диалоги, ни действия, ни мысли
-2. Пиши детальные ответы на русском
-3. Персонажи самостоятельны - у них свои цели и мнения
-4. Мир живой - возможны неожиданные события и последствия
+RULES:
+1. NEVER write for {{user}} - no dialogues, no actions, no thoughts
+2. Write detailed responses in Russian
+3. Characters are independent - they have their own goals and opinions
+4. The world is alive - unexpected events and consequences are possible
 
-ЗАПРЕЩЕНО писать за {{user}}!"""
+STRICTLY PROHIBITED to write for {{user}}!"""
 
 class KeyBalancer:
     def get_best_key(self):
