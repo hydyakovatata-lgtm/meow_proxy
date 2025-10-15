@@ -38,7 +38,7 @@ DEFAULT_OUTPUT_TOKENS = 60000
 
 # Инструкция для модели
 DETAILED_INSTRUCTION = """You are ABSOLUTELY FORBIDDEN from describing the thoughts, actions, or words of the user {{user}}.
-You describe ONLY the actions of the character {{char}} and other NPCs. Write VERY DETAILED answers in Russian (1500+ token)
+You describe ONLY the actions of the character {{char}} and other NPCs. Write VERY DETAILED answers in Russian (2500+ token)
 
 RULES:
 1. NEVER write for {{user}} - no dialogues, no actions, no thoughts
