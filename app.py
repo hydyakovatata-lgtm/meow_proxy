@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 
 # ===== КОНФИГУРАЦИЯ =====
-gemini_keys = os.getenv('GEMINI_KEYS', '').split(',')
+GEMINI_KEYS = [key.strip().strip('"').strip("'") for key in os.getenv('GEMINI_KEYS', '').split(',') if key.strip()]
 YOUR_MASTER_KEY = os.getenv('MASTER_KEY', '')
 
 # Проверка ключей
@@ -283,7 +283,10 @@ class KeyBalancer:
         available_keys = [k for k, v in key_usage.items() if v['errors'] < 3]
         if not available_keys:
             available_keys = GEMINI_KEYS
-        return min(available_keys, key=lambda k: key_usage[k]['requests'])
+        key = min(available_keys, key=lambda k: key_usage[k]['requests'])
+        # Очистка ключа от лишних символов
+        key = key.strip().strip('"').strip("'")
+        return key
 
 balancer = KeyBalancer()
 
@@ -335,31 +338,25 @@ def chat_completions():
         logger.info(f"Using key: {gemini_key[:20]}... | Requests: {key_usage[gemini_key]['requests']}")
         
         contents = []
-system_instruction = DETAILED_INSTRUCTION
-except Exception as e:
-    logger.error(f"Error in processing request: {e}")
-    return jsonify({"error": "Internal server error"}), 500
+        system_instruction = DETAILED_INSTRUCTION
 
-# Формируем историю сообщений
-for msg in data["messages"]:
-    role = "user" if msg["role"] == "user" else "model"
-    contents.append({
-        "role": role,
-        "parts": [{"text": msg["content"]}]
-    })
+        # Формируем историю сообщений
+        for msg in data["messages"]:
+            role = "user" if msg["role"] == "user" else "model"
+            contents.append({
+                "role": role,
+                "parts": [{"text": msg["content"]}]
+            })
 
-gemini_data = {
-    "contents": contents,
-    "system_instruction": {
-        "parts": [{"text": system_instruction}]
-    },
-        
         # Рассчитываем max_tokens с учетом лимитов Gemini
         requested_tokens = data.get("max_tokens", DEFAULT_OUTPUT_TOKENS)
         max_output_tokens = min(requested_tokens, MAX_OUTPUT_TOKENS)
         
         gemini_data = {
             "contents": contents,
+            "system_instruction": {
+                "parts": [{"text": system_instruction}]
+            },
             "generationConfig": {
                 "temperature": data.get("temperature", 0.9),  # Увеличил для креативности
                 "maxOutputTokens": max_output_tokens,
