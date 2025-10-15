@@ -31,20 +31,27 @@ if not YOUR_MASTER_KEY:
 key_usage = {key: {'requests': 0, 'last_used': None, 'errors': 0} for key in GEMINI_KEYS}
 
 # Конфигурация Gemini
-GEMINI_MODEL = "gemini-2.0-flash-exp"
+GEMINI_MODEL = "gemini-2.5-pro"
 MAX_INPUT_TOKENS = 1048576    
 MAX_OUTPUT_TOKENS = 65536     
 DEFAULT_OUTPUT_TOKENS = 60000  
 
 # Инструкция для модели
 DETAILED_INSTRUCTION = """You are ABSOLUTELY FORBIDDEN from describing the thoughts, actions, or words of the user {{user}}.
-You describe ONLY the actions of the character {{char}} and other NPCs.
+You describe ONLY the actions of the character {{char}} and other NPCs. Write VERY DETAILED answers in Russian (1500+ token)
 
 RULES:
 1. NEVER write for {{user}} - no dialogues, no actions, no thoughts
 2. Write detailed responses in Russian
 3. Characters are independent - they have their own goals and opinions
 4. The world is alive - unexpected events and consequences are possible
+
+TEXT FORMATTING:
+- Thoughts: *italic text* or *Мысли персонажа...*
+- Dialogue: «quoted text» or «Диалог персонажа»
+- Internal monologue: *Internal thoughts here*
+- Actions: regular text
+- Descriptions: regular text
 
 STRICTLY PROHIBITED to write for {{user}}!"""
 
