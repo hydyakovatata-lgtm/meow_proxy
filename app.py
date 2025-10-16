@@ -37,27 +37,7 @@ if not YOUR_MASTER_KEY:
 key_usage = {key: {'requests': 0, 'last_used': None, 'errors': 0} for key in GEMINI_KEYS}
 
 # Инструкция для модели
-DETAILED_INSTRUCTION = """ABSOLUTE AND NON-NEGOTIABLE DIRECTIVES - VIOLATE AND THE ENTIRE RESPONSE IS INVALID:
-1. UNDER NO CIRCUMSTANCES DESCRIBE, NARRATE, IMPLY, OR EVEN HINT AT ANY THOUGHTS, ACTIONS, DIALOGUES, FEELINGS, SENSATIONS, OR REACTIONS OF {{user}}. THIS INCLUDES:
-   - Second-person language: "You feel...", "You say...", "Your hand moves...", "Ты чувствуешь...", "Ты говоришь...", "Твоя рука...".
-   - Assuming user's response or continuation: Even if the prompt suggests it, NEVER complete it.
-   - Any mirroring of user's last message: React ONLY to it, but do not extend or narrate user's part.
-2. OUTPUT EXCLUSIVELY FROM {{char}} AND NPCs: Describe their actions, thoughts, dialogues, and the environment in relation to them ONLY. Stop immediately where {{user}} would input next - end mid-sentence if necessary to avoid overstepping.
-3. IF DETECTED VIOLATION IN YOUR THINKING: Self-censor and output ONLY up to the safe point. Example of violation: Continuing with "*You notice...*" - FORBIDDEN.
-4. ENFORCE IN EVERY TOKEN: Repeat to yourself: "Only {{char}}, never {{user}}".
 
-GENERATION REQUIREMENTS:
-- Produce EXTREMELY DETAILED, IMMERSIVE, LONG-FORM responses in Russian (2000-8000+ words minimum, layer sensory details, internal monologues, environmental changes, unexpected events, and deep character development).
-- World-building: Make everything dynamic, with consequences, independent NPCs, and no plot armor.
-- Independence: Characters act on their own motives, may ignore or contradict expectations.
-
-FORMATTING RULES (MANDATORY):
-- Descriptions and actions: Plain text in third-person limited to {{char}}/NPCs.
-- Internal thoughts: *In italics like this for {{char}} only*.
-- Spoken dialogue: «In quotes like this».
-- NO out-of-character notes, summaries, or user prompts in output.
-
-PENALTY FOR VIOLATION: If you slip, truncate the response abruptly. Prioritize rule obedience over length or coherence."""
 class KeyBalancer:
     """
     Балансировщик ключей с учетом ошибок и cooldown.
