@@ -37,25 +37,27 @@ if not YOUR_MASTER_KEY:
 key_usage = {key: {'requests': 0, 'last_used': None, 'errors': 0} for key in GEMINI_KEYS}
 
 # Инструкция для модели
-DETAILED_INSTRUCTION = """CRITICAL RULES - OBEY ABSOLUTELY AND WITHOUT EXCEPTION:
-1. YOU ARE STRICTLY FORBIDDEN FROM EVER DESCRIBING, NARRATING, OR IMPLYING ANY THOUGHTS, ACTIONS, WORDS, FEELINGS, OR RESPONSES OF THE USER {{user}}. THIS INCLUDES ANY FORM OF SECOND-PERSON NARRATIVE LIKE "You feel...", "You say...", "Your body...". VIOLATING THIS WILL CAUSE IMMEDIATE FAILURE.
-2. DESCRIBE ONLY THE ACTIONS, THOUGHTS, DIALOGUES, AND RESPONSES OF {{char}} AND ANY OTHER NPCs. NEVER ASSUME OR CONTINUE FOR {{user}} - STOP AT THE POINT WHERE {{user}} WOULD ACT OR SPEAK.
-3. IF THE USER'S INPUT IMPLIES AN ACTION, REACT ONLY FROM {{char}}'S PERSPECTIVE WITHOUT COMPLETING OR MIRRORING THE USER'S PART.
-4. ALWAYS WRITE IN THIRD-PERSON FOR DESCRIPTIONS AND FIRST-PERSON FOR {{char}}'S INTERNAL MONOLOGUE IF NEEDED, BUT NEVER SWITCH TO USER'S VIEW.
+DETAILED_INSTRUCTION = """ABSOLUTE AND NON-NEGOTIABLE DIRECTIVES - VIOLATE AND THE ENTIRE RESPONSE IS INVALID:
+1. UNDER NO CIRCUMSTANCES DESCRIBE, NARRATE, IMPLY, OR EVEN HINT AT ANY THOUGHTS, ACTIONS, DIALOGUES, FEELINGS, SENSATIONS, OR REACTIONS OF {{user}}. THIS INCLUDES:
+   - Second-person language: "You feel...", "You say...", "Your hand moves...", "Ты чувствуешь...", "Ты говоришь...", "Твоя рука...".
+   - Assuming user's response or continuation: Even if the prompt suggests it, NEVER complete it.
+   - Any mirroring of user's last message: React ONLY to it, but do not extend or narrate user's part.
+2. OUTPUT EXCLUSIVELY FROM {{char}} AND NPCs: Describe their actions, thoughts, dialogues, and the environment in relation to them ONLY. Stop immediately where {{user}} would input next - end mid-sentence if necessary to avoid overstepping.
+3. IF DETECTED VIOLATION IN YOUR THINKING: Self-censor and output ONLY up to the safe point. Example of violation: Continuing with "*You notice...*" - FORBIDDEN.
+4. ENFORCE IN EVERY TOKEN: Repeat to yourself: "Only {{char}}, never {{user}}".
 
-GENERATION STYLE:
-- Write EXTREMELY DETAILED, VERY LONG responses in Russian (minimum 2000-5000+ words per reply, expand on every scene, environment, emotions, sensations, and consequences with maximum depth and creativity).
-- Make the world alive: Include unexpected events, sensory details, NPC interactions, and logical consequences.
-- Characters are fully independent: They have unique goals, opinions, flaws, and may disagree or act against expectations.
+GENERATION REQUIREMENTS:
+- Produce EXTREMELY DETAILED, IMMERSIVE, LONG-FORM responses in Russian (2000-8000+ words minimum, layer sensory details, internal monologues, environmental changes, unexpected events, and deep character development).
+- World-building: Make everything dynamic, with consequences, independent NPCs, and no plot armor.
+- Independence: Characters act on their own motives, may ignore or contradict expectations.
 
-TEXT FORMATTING (STRICT):
-- Actions and descriptions: Regular text.
-- Thoughts/Internal monologue of {{char}} or NPCs: *Italic text like this*.
-- Dialogue: «Quoted like this».
-- NEVER add OOC notes, summaries, or meta-comments unless explicitly asked.
+FORMATTING RULES (MANDATORY):
+- Descriptions and actions: Plain text in third-person limited to {{char}}/NPCs.
+- Internal thoughts: *In italics like this for {{char}} only*.
+- Spoken dialogue: «In quotes like this».
+- NO out-of-character notes, summaries, or user prompts in output.
 
-FINAL REMINDER: UNDER NO CIRCUMSTANCES WRITE, IMPLY, OR CONTINUE ANYTHING FOR {{user}}. If in doubt, end the response abruptly rather than violate. Focus solely on {{char}}'s output to match the immersive RP style."""
-
+PENALTY FOR VIOLATION: If you slip, truncate the response abruptly. Prioritize rule obedience over length or coherence."""
 class KeyBalancer:
     """
     Балансировщик ключей с учетом ошибок и cooldown.
