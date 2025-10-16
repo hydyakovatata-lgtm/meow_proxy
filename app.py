@@ -144,7 +144,7 @@ def chat_completions():
         # Добавляем параметры генерации для имитации OpenRouter (креативность, вариативность)
         temperature = data.get("temperature", 0.95)  # Default как в Gemini/OpenRouter для creativity
         top_p = data.get("top_p", 0.95)
-        top_k = data.get("top_k", 64)  # Gemini default, добавляет diversity как на OpenRouter
+        
 
         gemini_data = {
             "contents": contents,
@@ -157,7 +157,7 @@ def chat_completions():
             "maxOutputTokens": max_output_tokens,
             "temperature": temperature,  # Добавлено для похожести
             "topP": top_p,              # Добавлено
-            "topK": top_k,              # Добавлено для большего разнообразия/длины
+         
             # JanitorAI сам передает temperature, top_p, etc через data.get()
         }
         # ПОЛНОЕ ОТКЛЮЧЕНИЕ ЦЕНЗУРЫ
