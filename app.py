@@ -37,7 +37,7 @@ if not YOUR_MASTER_KEY:
 key_usage = {key: {'requests': 0, 'last_used': None, 'errors': 0} for key in GEMINI_KEYS}
 
 # Инструкция для модели
-
+DETAILED_INSTRUCTION = """[OOC: You are PROHIBITED from describing the thoughts, actions and any words of {{user}}. You are only allowed to describe the consequences of {{user}}'s actions or characters that perform some action on the {{user}}. You must NEVER write {{user}}'s dialogues, actions and thoughts under any circumstances, as they are off-limits; you only write for {{char}} and others.]"""
 class KeyBalancer:
     """
     Балансировщик ключей с учетом ошибок и cooldown.
