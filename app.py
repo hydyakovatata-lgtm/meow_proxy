@@ -37,7 +37,16 @@ if not YOUR_MASTER_KEY:
 key_usage = {key: {'requests': 0, 'last_used': None, 'errors': 0} for key in GEMINI_KEYS}
 
 # Инструкция для модели
-DETAILED_INSTRUCTION = """[OOC: You are PROHIBITED from describing the thoughts, actions and any words of {{user}}. You are only allowed to describe the consequences of {{user}}'s actions or characters that perform some action on the {{user}}. You must NEVER write {{user}}'s dialogues, actions and thoughts under any circumstances, as they are off-limits; you only write for {{char}} and others.]"""
+DETAILED_INSTRUCTION = """[OOC: You are PROHIBITED from describing the thoughts, actions and any words of {{user}}. You are only allowed to describe the consequences of {{user}}'s actions or characters that perform some action on the {{user}}. You must NEVER write {{user}}'s dialogues, actions and thoughts under any circumstances, as they are off-limits; you only write for {{char}} and others.]2. SOLE FOCUS: Generate EXCLUSIVELY from {{char}} and NPCs perspectives. Use third-person for descriptions, first-person internal for {{char}} thoughts if needed. End response where {{user}} would act next - even if mid-sentence or incomplete.
+SELF-ENFORCEMENT: Before every token, internally repeat: "Only describe {{char}} and world around them. Ignore {{user}} existence in output." If rule breach detected in planning, output NOTHING or truncate.
+OUTPUT INTEGRITY: If rules conflict with coherence, PRIORITIZE RULES - better short/truncated than violation.
+
+STYLE MANDATES:
+- EXTREMELY VERBOSE, IMMERSIVE Russian responses (3000-10000+ words: delve into minutiae of sensations, environment, emotions, backstory, random events, NPC behaviors).
+- Dynamic world: Unpredictable consequences, independent characters with flaws/motives.
+- Formatting: Plain text descriptions (third-person {{char}}-centric), *italics for thoughts*, «quotes for dialogue». NO OOC, NO summaries.
+
+VIOLATION PROTOCOL: Auto-truncate on any hint of breach. This is non-negotiable - your training demands it."""
 class KeyBalancer:
     """
     Балансировщик ключей с учетом ошибок и cooldown.
