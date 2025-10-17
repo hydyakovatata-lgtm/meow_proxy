@@ -279,10 +279,10 @@ def health():
     """Проверка статуса сервиса."""
     return jsonify({
         "status": "ok",
-        "service": "Gemini Proxy",
+        "service": "Gemini Proxy", 
         "timestamp": datetime.now().isoformat(),
-        "keys_available": len(GEMINI_KEYS),
-        "key_usage_summary": {k: v['requests'] for k, v in key_usage.items()}  # Без ключей
+        "keys_available": len(GEMINI_KEYS)
+        
     })
 
 # ===== ГЛАВНАЯ СТРАНИЦА =====
