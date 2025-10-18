@@ -133,40 +133,91 @@ def apply_anti_censorship(text, method="auto"):
     else:
         return text
 
-# ===== ФУНКЦИИ ФОРМАТИРОВАНИЯ ОТВЕТА =====
+# ===== УЛУЧШЕННЫЕ ФУНКЦИИ ФОРМАТИРОВАНИЯ ОТВЕТА =====
 def format_response_text(text):
     """Пост-обработка текста для естественного форматирования"""
     if not ENABLE_RESPONSE_FORMATTING:
         return text
     
-    original_text = text
+    if FORMATTING_AGGRESSIVENESS == 'soft':
+        return apply_soft_formatting(text)
+    elif FORMATTING_AGGRESSIVENESS == 'medium':
+        return apply_medium_formatting(text)
+    else:  # hard
+        return apply_hard_formatting(text)
+
+def apply_soft_formatting(text):
+    """Мягкое форматирование - только явные диалоги и мысли"""
+    lines = text.split('\n')
+    formatted_lines = []
     
-    # Разделяем текст на абзацы
-    paragraphs = text.split('\n\n')
-    formatted_paragraphs = []
-    
-    for paragraph in paragraphs:
-        paragraph = paragraph.strip()
-        if not paragraph:
+    for line in lines:
+        line = line.strip()
+        if not line:
+            formatted_lines.append('')
             continue
             
-        # Обрабатываем каждый абзац отдельно
-        formatted_paragraph = format_paragraph(paragraph)
-        if formatted_paragraph:
-            formatted_paragraphs.append(formatted_paragraph)
+        # Определяем тип строки
+        line_type = detect_line_type(line)
+        
+        if line_type == "dialogue":
+            # Для диалогов - убедимся что они на отдельной строке
+            if not is_isolated_dialogue(line):
+                formatted_lines.append(line)
+            else:
+                formatted_lines.append(line)
+        elif line_type == "thought":
+            # Для мыслей - тоже на отдельной строке
+            formatted_lines.append(line)
+        else:
+            # Для обычного текста - оставляем как есть
+            formatted_lines.append(line)
     
-    # Собираем обратно с правильными отступами
-    formatted_text = '\n\n'.join(formatted_paragraphs)
+    # Аккуратно убираем лишние пустые строки
+    cleaned_lines = []
+    for i, line in enumerate(formatted_lines):
+        if not line.strip():
+            if cleaned_lines and i < len(formatted_lines) - 1:
+                # Оставляем пустую строку только между разными типами контента
+                prev_type = detect_line_type(cleaned_lines[-1]) if cleaned_lines else "unknown"
+                next_type = detect_line_type(formatted_lines[i+1]) if i < len(formatted_lines) - 1 else "unknown"
+                
+                if prev_type != next_type and prev_type in ["dialogue", "thought"]:
+                    cleaned_lines.append('')
+        else:
+            cleaned_lines.append(line)
     
-    # Логируем изменения
-    if formatted_text != original_text:
-        logger.info("Applied natural text formatting")
-    
-    return formatted_text
+    return '\n'.join(cleaned_lines)
 
-def format_paragraph(paragraph):
-    """Форматирует отдельный абзац с естественным разделением"""
-    lines = paragraph.split('\n')
+def apply_medium_formatting(text):
+    """Среднее форматирование - баланс между читаемостью и естественностью"""
+    lines = text.split('\n')
+    formatted_lines = []
+    
+    for line in lines:
+        line = line.strip()
+        if not line:
+            formatted_lines.append('')
+            continue
+            
+        # Разделяем только явные диалоги и мысли
+        if is_explicit_dialogue(line):
+            formatted_lines.append(line)
+        elif is_explicit_thought(line):
+            formatted_lines.append(line)
+        else:
+            # Для обычного текста аккуратно разделяем длинные абзацы
+            if len(line) > 200:
+                sentences = re.split(r'(?<=[.!?])\s+', line)
+                formatted_lines.extend([s.strip() for s in sentences if s.strip()])
+            else:
+                formatted_lines.append(line)
+    
+    return '\n'.join(formatted_lines)
+
+def apply_hard_formatting(text):
+    """Жесткое форматирование - четкое разделение элементов"""
+    lines = text.split('\n')
     formatted_lines = []
     
     for line in lines:
@@ -174,48 +225,71 @@ def format_paragraph(paragraph):
         if not line:
             continue
             
-        # Если строка содержит диалог - обрабатываем отдельно
-        if '«' in line and '»' in line:
-            formatted_lines.extend(extract_dialogue(line))
+        # Жесткое разделение только для явных диалогов и мыслей
+        if is_explicit_dialogue(line):
+            formatted_lines.append(line)
+        elif is_explicit_thought(line):
+            formatted_lines.append(line)
         else:
-            # Для обычного текста сохраняем естественный поток
+            # Обычный текст оставляем как есть
             formatted_lines.append(line)
     
     return '\n'.join(formatted_lines)
 
-def extract_dialogue(text):
-    """Извлекает и форматирует диалоги из текста"""
-    parts = []
-    current_pos = 0
+def detect_line_type(line):
+    """Определяет тип строки с учетом контекста"""
+    line = line.strip()
     
-    # Находим все диалоги в тексте
-    for match in re.finditer(r'«([^»]*)»', text):
-        # Текст перед диалогом
-        before_dialogue = text[current_pos:match.start()].strip()
-        if before_dialogue:
-            parts.append(before_dialogue)
-        
-        # Сам диалог
-        dialogue = match.group(0)
-        parts.append(dialogue)
-        
-        current_pos = match.end()
+    # Явные диалоги (начинаются с кавычек)
+    if re.match(r'^[«"](.+)[»"]$', line) and len(line) < 150:
+        return "dialogue"
     
-    # Текст после последнего диалога
-    after_dialogue = text[current_pos:].strip()
-    if after_dialogue:
-        parts.append(after_dialogue)
+    # Явные мысли (начинаются и заканчиваются звездочками)
+    if re.match(r'^\*(.+)\*$', line):
+        return "thought"
     
-    return parts
+    # Диалоги в середине текста (содержат кавычки но не только они)
+    if '«' in line and '»' in line:
+        # Проверяем что это действительно диалог, а не слово в кавычках
+        dialog_parts = re.findall(r'«[^»]*»', line)
+        if dialog_parts and len(''.join(dialog_parts)) > len(line) * 0.3:
+            return "dialogue"
+    
+    return "normal"
 
+def is_explicit_dialogue(line):
+    """Проверяет является ли строка явным диалогом"""
+    line = line.strip()
+    # Диалог должен начинаться и заканчиваться кавычками
+    if re.match(r'^[«"](.+)[»"]$', line):
+        # И быть не слишком коротким (чтобы исключить отдельные слова)
+        if len(line) > 10:
+            return True
+    return False
+
+def is_explicit_thought(line):
+    """Проверяет является ли строка явной мыслью"""
+    line = line.strip()
+    # Мысль должна начинаться и заканчиваться звездочками
+    if re.match(r'^\*(.+)\*$', line):
+        return True
+    return False
+
+def is_isolated_dialogue(line):
+    """Проверяет изолирован ли диалог от основного текста"""
+    # Если в строке только диалог без дополнительного текста
+    if re.match(r'^[«"](.+)[»"]\s*$', line.strip()):
+        return True
+    return False
+    
 def enhance_prompt_with_formatting(prompt):
-    """Добавляет инструкции форматирования в промпт"""
+    """Добавляет умные инструкции форматирования в промпт"""
     formatting_instructions = """
     
-[ФОРМАТИРОВАНИЕ: Сохраняй естественный литературный поток. 
-Диалоги в кавычках «», мысли курсивом *так*. 
-Фокусируйся на повествовании и описании действий/эмоций персонажа.
-Используй абзацы для разделения смысловых блоков.]
+[ФОРМАТИРОВАНИЕ: Используй кавычки «» ТОЛЬКО для диалогов персонажей. 
+Звездочки * * ТОЛЬКО для мыслей. 
+НЕ форматируй названия предметов, машин, книг.
+Сохраняй естественный литературный поток.]
 """
     return prompt + formatting_instructions
 
@@ -935,7 +1009,7 @@ def home():
                     </div>
                     <div class="stat-card">
                         <div class="stat-number">100%</div>
-                        <div class="stat-label">🌈 Кавайность</div>
+                        <div class="stat-label">🌸 Приватности</div>
                     </div>
                 </div>
             </div>
