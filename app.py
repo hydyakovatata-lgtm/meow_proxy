@@ -486,33 +486,398 @@ def health():
 @app.route('/')
 def home():
     """Главная страница с информацией."""
-    return f"""
-    <html>
-        <head>
-            <title>🚀 Gemini Proxy API</title>
-            <style>
-                body {{ font-family: Arial, sans-serif; max-width: 800px; margin: 40px auto; padding: 20px; }}
-                h1 {{ color: #333; }}
-                ul {{ line-height: 1.6; }}
-                a {{ color: #007bff; text-decoration: none; }}
-                a:hover {{ text-decoration: underline; }}
-                .feature {{ color: #28a745; font-weight: bold; }}
-            </style>
-        </head>
-        <body>
-            <h1>🚀 Gemini Proxy API</h1>
-            <p>Server is running successfully! ✅</p>
-            <p><span class="feature">Anti-censorship:</span> {ENABLE_ANTI_CENSORSHIP}</p>
-            <p><span class="feature">Response formatting:</span> {ENABLE_RESPONSE_FORMATTING}</p>
-            <p>Available endpoints:</p>
-            <ul>
-                <li><a href="/health">/health</a> - Status check</li>
-                <li><a href="/v1/models">/v1/models</a> - List models</li>
-                <li>POST /v1/chat/completions - Main chat API</li>
-                <li>POST /v1/completions - JanitorAI compatibility</li>
-            </ul>
-            <p><strong>Usage:</strong> Set API URL to <code>https://meow-meow-mme0.onrender.com/v1</code> in SillyTavern/JanitorAI</p>
-        </body>
+    return """
+    <!DOCTYPE html>
+    <html lang="ru">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title> ₍^. .^₎⟆ 🫧Meow-Proxy🫧₍^. .^₎⟆</title>
+        <style>
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }
+
+            body {
+                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                min-height: 100vh;
+                color: #333;
+            }
+
+            .container {
+                max-width: 1200px;
+                margin: 0 auto;
+                padding: 20px;
+            }
+
+            .header {
+                text-align: center;
+                padding: 60px 20px;
+                background: rgba(255, 255, 255, 0.95);
+                border-radius: 20px;
+                margin-bottom: 40px;
+                box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+                backdrop-filter: blur(10px);
+            }
+
+            .logo {
+                font-size: 4rem;
+                margin-bottom: 20px;
+                background: linear-gradient(135deg, #667eea, #764ba2);
+                -webkit-background-clip: text;
+                -webkit-text-fill-color: transparent;
+                background-clip: text;
+            }
+
+            .title {
+                font-size: 3rem;
+                font-weight: 700;
+                margin-bottom: 10px;
+                color: #2d3748;
+            }
+
+            .subtitle {
+                font-size: 1.3rem;
+                color: #718096;
+                margin-bottom: 30px;
+                font-weight: 300;
+            }
+
+            .status-badge {
+                display: inline-block;
+                background: #48bb78;
+                color: white;
+                padding: 8px 20px;
+                border-radius: 50px;
+                font-weight: 600;
+                margin-bottom: 30px;
+                box-shadow: 0 4px 15px rgba(72, 187, 120, 0.3);
+            }
+
+            .features-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+                gap: 25px;
+                margin: 40px 0;
+            }
+
+            .feature-card {
+                background: rgba(255, 255, 255, 0.9);
+                padding: 30px;
+                border-radius: 15px;
+                text-align: center;
+                box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+                transition: transform 0.3s ease, box-shadow 0.3s ease;
+                backdrop-filter: blur(10px);
+            }
+
+            .feature-card:hover {
+                transform: translateY(-5px);
+                box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+            }
+
+            .feature-icon {
+                font-size: 2.5rem;
+                margin-bottom: 15px;
+            }
+
+            .feature-title {
+                font-size: 1.3rem;
+                font-weight: 600;
+                margin-bottom: 10px;
+                color: #2d3748;
+            }
+
+            .feature-desc {
+                color: #718096;
+                line-height: 1.6;
+            }
+
+            .stats-container {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+                gap: 20px;
+                margin: 40px 0;
+            }
+
+            .stat-card {
+                background: rgba(255, 255, 255, 0.9);
+                padding: 25px;
+                border-radius: 15px;
+                text-align: center;
+                box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+                backdrop-filter: blur(10px);
+            }
+
+            .stat-number {
+                font-size: 2.5rem;
+                font-weight: 700;
+                color: #667eea;
+                margin-bottom: 5px;
+            }
+
+            .stat-label {
+                color: #718096;
+                font-weight: 500;
+            }
+
+            .endpoints-section {
+                background: rgba(255, 255, 255, 0.95);
+                padding: 40px;
+                border-radius: 20px;
+                margin: 40px 0;
+                box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            }
+
+            .section-title {
+                font-size: 2rem;
+                text-align: center;
+                margin-bottom: 30px;
+                color: #2d3748;
+            }
+
+            .endpoint-list {
+                list-style: none;
+            }
+
+            .endpoint-item {
+                background: rgba(102, 126, 234, 0.1);
+                margin: 15px 0;
+                padding: 20px;
+                border-radius: 10px;
+                border-left: 4px solid #667eea;
+            }
+
+            .endpoint-method {
+                display: inline-block;
+                background: #667eea;
+                color: white;
+                padding: 5px 15px;
+                border-radius: 5px;
+                font-weight: 600;
+                margin-right: 15px;
+            }
+
+            .endpoint-path {
+                font-family: 'Courier New', monospace;
+                font-weight: 600;
+                color: #2d3748;
+            }
+
+            .endpoint-desc {
+                color: #718096;
+                margin-top: 8px;
+                margin-left: 80px;
+            }
+
+            .ai-images {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+                gap: 20px;
+                margin: 40px 0;
+            }
+
+            .ai-image {
+                width: 100%;
+                height: 200px;
+                border-radius: 15px;
+                object-fit: cover;
+                box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+                transition: transform 0.3s ease;
+            }
+
+            .ai-image:hover {
+                transform: scale(1.05);
+            }
+
+            .footer {
+                text-align: center;
+                padding: 40px 20px;
+                color: white;
+                margin-top: 60px;
+            }
+
+            .usage-box {
+                background: rgba(255, 255, 255, 0.9);
+                padding: 30px;
+                border-radius: 15px;
+                margin: 30px 0;
+                box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            }
+
+            .code-block {
+                background: #2d3748;
+                color: #e2e8f0;
+                padding: 20px;
+                border-radius: 10px;
+                font-family: 'Courier New', monospace;
+                margin: 15px 0;
+                overflow-x: auto;
+            }
+
+            @media (max-width: 768px) {
+                .title {
+                    font-size: 2rem;
+                }
+                
+                .subtitle {
+                    font-size: 1.1rem;
+                }
+                
+                .features-grid {
+                    grid-template-columns: 1fr;
+                }
+                
+                .endpoint-desc {
+                    margin-left: 0;
+                    margin-top: 10px;
+                }
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <!-- Header Section -->
+            <div class="header">
+                <div class="logo">🫧</div>
+                <h1 class="title">Gemini Proxy API</h1>
+                <p class="subtitle">Мощный прокси-сервер для работы с Google Gemini AI</p>
+                <div class="status-badge">💚 Сервер работает успешно!</div>
+                
+                <div class="stats-container">
+                    <div class="stat-card">
+                        <div class="stat-number">32</div>
+                        <div class="stat-label">API Ключей</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">2M</div>
+                        <div class="stat-label">Токенов контекста</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">65K</div>
+                        <div class="stat-label">Токенов вывода</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">99.9%</div>
+                        <div class="stat-label">Доступность</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Features Grid -->
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">🔓</div>
+                    <h3 class="feature-title">Без цензуры</h3>
+                    <p class="feature-desc">Полное отключение ограничений Google AI для свободного творчества</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">⚡</div>
+                    <h3 class="feature-title">Высокая скорость</h3>
+                    <p class="feature-desc">Балансировка нагрузки между 32 ключами для максимальной производительности</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🎨</div>
+                    <h3 class="feature-title">Умное форматирование</h3>
+                    <p class="feature-desc">Автоматическое форматирование текста с диалогами и мыслями</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🛡️</div>
+                    <h3 class="feature-title">Защита от банов</h3>
+                    <p class="feature-desc">Автоматическая ротация ключей при достижении лимитов</p>
+                </div>
+            </div>
+
+            <!-- AI Generated Images -->
+            <div class="section-title">AI Генерация изображений</div>
+            <div class="ai-images">
+                <img src="https://image.pollinations.ai/prompt/futuristic%20AI%20brain%20with%20neural%20networks%20glowing%20blue%20and%20purple%20cyberpunk%20style" alt="AI Brain" class="ai-image">
+                <img src="https://image.pollinations.ai/prompt/digital%20consciousness%20flowing%20through%20circuits%20holographic%20interface%20neon%20lights" alt="Digital Consciousness" class="ai-image">
+                <img src="https://image.pollinations.ai/prompt/quantum%20computer%20with%20floating%20particles%20futuristic%20technology%20abstract%20art" alt="Quantum Computing" class="ai-image">
+                <img src="https://image.pollinations.ai/prompt/neural%20network%20visualization%20with%20glowing%20connections%20deep%20learning%20art" alt="Neural Network" class="ai-image">
+            </div>
+
+            <!-- API Endpoints -->
+            <div class="endpoints-section">
+                <h2 class="section-title">API Endpoints</h2>
+                <ul class="endpoint-list">
+                    <li class="endpoint-item">
+                        <span class="endpoint-method">GET</span>
+                        <span class="endpoint-path">/health</span>
+                        <div class="endpoint-desc">Проверка статуса сервера и статистика ключей</div>
+                    </li>
+                    <li class="endpoint-item">
+                        <span class="endpoint-method">GET</span>
+                        <span class="endpoint-path">/v1/models</span>
+                        <div class="endpoint-desc">Список доступных моделей Gemini</div>
+                    </li>
+                    <li class="endpoint-item">
+                        <span class="endpoint-method">POST</span>
+                        <span class="endpoint-path">/v1/chat/completions</span>
+                        <div class="endpoint-desc">Основной эндпоинт для чата (OpenAI-совместимый)</div>
+                    </li>
+                    <li class="endpoint-item">
+                        <span class="endpoint-method">POST</span>
+                        <span class="endpoint-path">/v1/completions</span>
+                        <div class="endpoint-desc">Совместимость с JanitorAI</div>
+                    </li>
+                </ul>
+            </div>
+
+            <!-- Usage Instructions -->
+            <div class="usage-box">
+                <h2 class="section-title">Быстрый старт</h2>
+                <div class="code-block">
+// Настройка в SillyTavern/JanitorAI:<br>
+API URL: https://meow-meow-mme0.onrender.com/v1<br>
+API Key: ключ<br>
+Model: gemini-2.5-pro
+                </div>
+                
+                <div class="code-block">
+// Пример cURL запроса:<br>
+curl -X POST https://meow-meow-mme0.onrender.com/v1/chat/completions \<br>
+  -H "Content-Type: application/json" \<br>
+  -H "Authorization: Bearer ключ" \<br>
+  -d '{"messages": [{"role": "user", "content": "Привет!"}], "model": "gemini-2.5-pro"}'
+                </div>
+            </div>
+
+            <!-- Footer -->
+            <div class="footer">
+                <p>💚 Powered by Gemini 2.5 Pro • 🔓 No censorship • ⚡ High performance</p>
+                <p>© 2025 Gemini Proxy API • Все права защищены</p>
+            </div>
+        </div>
+
+        <script>
+            // Анимация появления элементов при скролле
+            const observerOptions = {
+                threshold: 0.1,
+                rootMargin: '0px 0px -50px 0px'
+            };
+
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        entry.target.style.opacity = '1';
+                        entry.target.style.transform = 'translateY(0)';
+                    }
+                });
+            }, observerOptions);
+
+            // Применяем анимацию к карточкам
+            document.querySelectorAll('.feature-card, .stat-card, .endpoint-item').forEach(el => {
+                el.style.opacity = '0';
+                el.style.transform = 'translateY(20px)';
+                el.style.transition = 'opacity 0.6s ease, transform 0.6s ease';
+                observer.observe(el);
+            });
+        </script>
+    </body>
     </html>
     """
 
