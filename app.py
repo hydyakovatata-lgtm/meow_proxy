@@ -226,12 +226,12 @@ def chat_completions():
         # УЛУЧШЕННЫЕ НАСТРОЙКИ ДЛЯ ОБЪЕМНЫХ ОТВЕТОВ
         requested_tokens = data.get("max_tokens", DEFAULT_OUTPUT_TOKENS)
         # Обеспечиваем минимальную длину для объемных ответов
-        min_output_tokens = 6000
+        min_output_tokens = 2000
         max_output_tokens = max(min_output_tokens, min(requested_tokens, MAX_OUTPUT_TOKENS))
         
         # Агрессивные параметры для детальности (как в OpenRouter)
-        temperature = max(0.8, data.get("temperature", 1.0))  # Не ниже 0.8
-        top_p = max(0.9, data.get("top_p", 0.95))  # Не ниже 0.9
+        temperature = max(0.8, data.get("temperature", 1.0))  
+        top_p = max(0.9, data.get("top_p", 0.95))  
 
         gemini_data = {
             "contents": contents,
