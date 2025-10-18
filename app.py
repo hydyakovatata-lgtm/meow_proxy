@@ -34,6 +34,9 @@ ENABLE_ANTI_CENSORSHIP = os.getenv('ENABLE_ANTI_CENSORSHIP', 'true').lower() == 
 # Включить пост-обработку форматирования
 ENABLE_RESPONSE_FORMATTING = os.getenv('ENABLE_RESPONSE_FORMATTING', 'true').lower() == 'true'
 
+# Агрессивность форматирования (soft/medium/hard) - ДОБАВЬТЕ ЭТУ СТРОКУ
+FORMATTING_AGGRESSIVENESS = os.getenv('FORMATTING_AGGRESSIVENESS', 'soft').lower()
+
 # Проверка ключей
 if not GEMINI_KEYS:
     raise ValueError("❌ No Gemini keys found in environment variables")
@@ -553,7 +556,8 @@ def health():
         "timestamp": datetime.now().isoformat(),
         "keys_available": len(GEMINI_KEYS),
         "anti_censorship_enabled": ENABLE_ANTI_CENSORSHIP,
-        "response_formatting_enabled": ENABLE_RESPONSE_FORMATTING
+        "response_formatting_enabled": ENABLE_RESPONSE_FORMATTING,
+        "formatting_aggressiveness": FORMATTING_AGGRESSIVENESS  
     })
 
 # ===== ГЛАВНАЯ СТРАНИЦА =====
@@ -1172,6 +1176,7 @@ if __name__ == '__main__':
     print(f"📝 Output: {MAX_OUTPUT_TOKENS:,} tokens")
     print(f"🔓 Anti-censorship: {ENABLE_ANTI_CENSORSHIP}")
     print(f"📐 Response formatting: {ENABLE_RESPONSE_FORMATTING}")
+    print(f"🎛️  Formatting mode: {FORMATTING_AGGRESSIVENESS}")  # Добавьте эту строку
     print("📍 Endpoint: https://meow-meow-mme0.onrender.com/v1")
 
     port = int(os.environ.get('PORT', 5000))
