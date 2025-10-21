@@ -1150,7 +1150,7 @@ if __name__ == '__main__':
     print(f"📝 Output: {MAX_OUTPUT_TOKENS:,} tokens")
     print(f"🔓 Anti-censorship: {ENABLE_ANTI_CENSORSHIP}")
     print(f"📐 Response formatting: {ENABLE_RESPONSE_FORMATTING}")
-    print(f"🎛️  Formatting mode: {FORMATTING_AGGRESSIVENESS}")  # Добавьте эту строку
+    print(f"🎛️  Formatting mode: {FORMATTING_AGGRESSIVENESS}")  
     print("📍 Endpoint: https://meow-meow-mme0.onrender.com/v1")
 
     port = int(os.environ.get('PORT', 5000))
