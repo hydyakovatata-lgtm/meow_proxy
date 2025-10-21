@@ -105,19 +105,8 @@ def apply_anti_censorship(text, method="auto"):
     if not ENABLE_ANTI_CENSORSHIP:
         return text
         
-    if method == "encode":
-        return encode_prompt(text)
-    elif method == "context":
-        return contextualize_prompt(text)
-    elif method == "auto":
-        # Автоматически выбираем метод на основе содержания
-        sensitive_words = ['секс', 'порно', 'насилие', 'эротик', 'голый', 'интим']
-        if any(word in text.lower() for word in sensitive_words):
-            return contextualize_prompt(encode_prompt(text))
-        else:
-            return text
-    else:
-        return text
+    # Всегда используем только leet-speak кодирование
+    return encode_prompt(text)
 
 # ===== УЛУЧШЕННЫЕ ФУНКЦИИ ФОРМАТИРОВАНИЯ ОТВЕТА =====
 def format_response_text(text):
