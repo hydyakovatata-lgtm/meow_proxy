@@ -499,9 +499,11 @@ def clean_response_text(text):
     return text.strip()
 
 class KeyBalancer:
-    """Балансировщик ключей с учетом ошибок и cooldown."""
+    """
+    Балансировщик ключей с учетом ошибок и cooldown.
+    """
     def __init__(self):
-        self.cooldown_period = timedelta(minutes=15)
+        self.cooldown_period = timedelta(minutes=5)
 
     def get_best_key(self):
         now = datetime.now()
@@ -510,7 +512,7 @@ class KeyBalancer:
             if v['errors'] < 3 and (v['last_used'] is None or now - datetime.fromisoformat(v['last_used']) > self.cooldown_period)
         ]
         if not available_keys:
-            available_keys = GEMINI_KEYS
+            available_keys = GEMINI_KEYS  # Fallback на все ключи
         key = min(available_keys, key=lambda k: key_usage[k]['requests'])
         return key
 
@@ -563,22 +565,19 @@ def chat_completions():
     """OpenAI-совместимый эндпоинт для генерации чата через Gemini."""
     if request.method == 'OPTIONS':
         return '', 200
-
-    try:
+try:
         data = request.json
         if not data or 'messages' not in data:
             return jsonify({"error": "Invalid request format"}), 400
 
-        max_retries = len(GEMINI_KEYS)  # Ограничим попытки кол-вом ключей
-        retry_count = 0
+        gemini_key = balancer.get_best_key()
+        key_usage[gemini_key]['requests'] += 1
+        key_usage[gemini_key]['last_used'] = datetime.now().isoformat()
 
-        while retry_count < max_retries:
-            # Получаем лучший ключ
-            gemini_key = balancer.get_best_key()
-            key_usage[gemini_key]['requests'] += 1
-            key_usage[gemini_key]['last_used'] = datetime.now().isoformat()
+        logger.info(f"Using key: {gemini_key[:20]}... | Requests: {key_usage[gemini_key]['requests']}")
 
-            logger.info(f"Using key: {gemini_key[:20]}... | Requests: {key_usage[gemini_key]['requests']}")
+        contents = []
+        system_instruction = DETAILED_INSTRUCTION
 
             # ===== ОБРАБОТКА КОМАНД ИЗ LOREBARY =====
             jailbreak_active = check_for_tag(data, '<JAILBREAK=on>')
