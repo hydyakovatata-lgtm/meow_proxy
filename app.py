@@ -26,9 +26,6 @@ MAX_INPUT_TOKENS = int(os.getenv('MAX_INPUT_TOKENS', 2048000))
 MAX_OUTPUT_TOKENS = int(os.getenv('MAX_OUTPUT_TOKENS', 65536))
 DEFAULT_OUTPUT_TOKENS = int(os.getenv('DEFAULT_OUTPUT_TOKENS', 60000))
 
-# Новая конфиг для имитации OpenRouter
-MIMIC_OPENROUTER = os.getenv('MIMIC_OPENROUTER', 'false').lower() == 'true'
-
 # Включить анти-цензурные методы
 ENABLE_ANTI_CENSORSHIP = os.getenv('ENABLE_ANTI_CENSORSHIP', 'true').lower() == 'true'
 
@@ -199,8 +196,10 @@ def get_random_spice_instruction():
         "[OOC: Initiate spontaneous intimacy/self-pleasure now.]"
     ]
     return "\n" + random.choice(base_instructions)
+
 def get_slowburn_ooc():
     return "\n[OOC: Develop relationships VERY gradually. Focus on emotional connection and character development before physical intimacy. Build tension slowly through meaningful interactions, subtle moments, and shared experiences. Let romantic developments feel earned and natural over time.]"
+
 # ===== ОБХОД ЦЕНЗУРЫ ИЗ LOREBARY =====
 def apply_bypass_to_text(text, level):
     """Применяет обход цензуры к тексту"""
@@ -349,14 +348,22 @@ def check_for_tag(body, tag):
     """Проверяет наличие тега в запросе"""
     if not body:
         return False
-    full_text = json.dumps(body)
-    return tag in full_text
+    try:
+        full_text = json.dumps(body)
+        return tag in full_text
+    except (TypeError, ValueError):
+        logger.warning("Error serializing body for tag check")
+        return False
 
 def extract_bypass_level(body):
     """Извлекает уровень обхода цензуры"""
     if not body:
         return "NO"
-    full_text = json.dumps(body)
+    try:
+        full_text = json.dumps(body)
+    except (TypeError, ValueError):
+        logger.warning("Error serializing body for bypass extraction")
+        return "NO"
     
     bypass_pattern = r'<BYPASS=(SYSTEM|LOW|MEDIUM|STRONG)>'
     match = re.search(bypass_pattern, full_text, re.IGNORECASE)
@@ -370,7 +377,11 @@ def extract_custom_content(body, start_tag, end_tag):
     """Извлекает кастомный контент между тегами"""
     if not body:
         return None
-    full_text = json.dumps(body)
+    try:
+        full_text = json.dumps(body)
+    except (TypeError, ValueError):
+        logger.warning("Error serializing body for custom content extraction")
+        return None
     
     pattern = f"{start_tag}(.*?){end_tag}"
     match = re.search(pattern, full_text, re.DOTALL)
@@ -387,7 +398,11 @@ def extract_chance_from_command(body, command, default_value):
     """Извлекает шанс срабатывания из команды"""
     if not body:
         return default_value
-    full_text = json.dumps(body)
+    try:
+        full_text = json.dumps(body)
+    except (TypeError, ValueError):
+        logger.warning("Error serializing body for chance extraction")
+        return default_value
     
     pattern = f"{command}=1:(\\d+)"
     match = re.search(pattern, full_text, re.IGNORECASE)
@@ -453,11 +468,15 @@ def apply_soft_formatting(text):
 
 def apply_medium_formatting(text):
     """Среднее форматирование"""
-    return apply_soft_formatting(text)
+    text = apply_soft_formatting(text)
+    # Дополнительно: убираем лишние пробелы в строках
+    return '\n'.join(line.strip() for line in text.split('\n'))
 
 def apply_hard_formatting(text):
     """Жесткое форматирование"""
-    return apply_soft_formatting(text)
+    text = apply_medium_formatting(text)
+    # Дополнительно: сжимаем текст, убирая все лишние строки
+    return '\n'.join(line for line in text.split('\n') if line.strip())
 
 def clean_response_text(text):
     """Очистка текста от служебных меток"""
@@ -550,203 +569,214 @@ def chat_completions():
         if not data or 'messages' not in data:
             return jsonify({"error": "Invalid request format"}), 400
 
-        # Получаем лучший ключ
-        gemini_key = balancer.get_best_key()
-        key_usage[gemini_key]['requests'] += 1
-        key_usage[gemini_key]['last_used'] = datetime.now().isoformat()
+        max_retries = len(GEMINI_KEYS)  # Ограничим попытки кол-вом ключей
+        retry_count = 0
 
-        logger.info(f"Using key: {gemini_key[:20]}... | Requests: {key_usage[gemini_key]['requests']}")
-
-        # ===== ОБРАБОТКА КОМАНД ИЗ LOREBARY =====
-        jailbreak_active = check_for_tag(data, '<JAILBREAK=on>')
-        prefill_disabled = check_for_tag(data, '<PREFILL-OFF>')
-        ooc_disabled = check_for_tag(data, '<OOCINJECTION-OFF>')
-        force_markdown = check_for_tag(data, '<FORCEMARKDOWN>')
-        has_autoplot = check_for_tag(data, '<AUTOPLOT>')
-        has_crazymode = check_for_tag(data, '<CRAZYMODE>')
-        has_medieval = check_for_tag(data, '<MEDIEVALMODE>')
-        has_better_spice = check_for_tag(data, '<BETTERSPICEMODE>')
-        has_slowburn = check_slowburn_tag(data, '<SLOWBURN>')
-        # Извлекаем параметры
-        bypass_level = extract_bypass_level(data)
-        custom_prefill = extract_custom_content(data, '<CUSTOMPREFILL>', '</CUSTOMPREFILL>')
-        custom_ooc = extract_custom_content(data, '<CUSTOMOOC>', '</CUSTOMOOC>')
-        autoplot_chance = extract_chance_from_command(data, '<AUTOPLOT-CHANCE', 15)
-        spice_chance = extract_chance_from_command(data, '<BETTERSPICE-CHANCE', 20)
-
-        logger.info(f"Commands: JB={jailbreak_active}, Bypass={bypass_level}, AutoPlot={has_autoplot}, Medieval={has_medieval}")
-
-        # ===== ФОРМИРОВАНИЕ СООБЩЕНИЙ =====
-        contents = []
-        system_instruction = ""
-
-        # Добавляем джейлбрейк если активен
-        if jailbreak_active:
-            system_instruction = JAILBREAK_TEXT
-            logger.info("✓ Jailbreak activated")
-
-        # Обработка сообщений
-        for i, msg in enumerate(data["messages"]):
-            role = "user" if msg["role"] == "user" else "model"
-            content = msg["content"]
-            
-            # Применяем обход цензуры к non-user сообщениям
-            if bypass_level != "NO" and role != "user":
-                if bypass_level == "SYSTEM" and msg["role"] == "system":
-                    content = apply_bypass_to_text(content, "STRONG")
-                elif bypass_level != "SYSTEM":
-                    content = apply_bypass_to_text(content, bypass_level)
-            
-            # Для последнего user сообщения добавляем OOC
-            if role == "user" and i == len(data["messages"]) - 1 and not ooc_disabled:
-                ooc_text = get_ooc_instruction2()
-                
-                # Добавляем специальные режимы
-                if has_autoplot and random.randint(1, autoplot_chance) == 1:
-                    ooc_text += get_autoplot_ooc()
-                    logger.info("⚡ AutoPlot triggered!")
-                
-                if has_crazymode:
-                    ooc_text += get_crazymode_ooc()
-                    logger.info("🎭 CrazyMode activated!")
-                
-                if has_medieval:
-                    ooc_text += get_medieval_ooc()
-                    logger.info("🏰 Medieval mode activated!")
-                
-                if has_better_spice:
-                    if detect_spicy_content(content) or random.randint(1, spice_chance) == 1:
-                        ooc_text += get_better_spice_ooc()
-                        logger.info("🔥 Spice mode triggered!")
-                        
-               if has_slowburn:
-    ooc_text += get_slowburn_ooc()
-    logger.info("🕰️ Slowburn mode activated!")
-                
-                if custom_ooc:
-                    ooc_text += f"\n[OOC: {custom_ooc}]"
-                
-                ooc_text += get_ooc_instruction1()
-                content += ooc_text
-            
-            contents.append({
-                "role": role,
-                "parts": [{"text": content}]
-            })
-        
-        # Добавляем prefill если не отключен
-        if not prefill_disabled:
-            if custom_prefill:
-                prefill_text = custom_prefill
-            elif has_medieval:
-                prefill_text = get_medieval_prefill()
-            else:
-                prefill_text = get_default_prefill()
-            
-            contents.append({
-                "role": "model",
-                "parts": [{"text": prefill_text}]
-            })
-            logger.info("✓ Prefill added")
-
-        # ===== НАСТРОЙКИ ГЕНЕРАЦИИ =====
-        requested_tokens = data.get("max_tokens", DEFAULT_OUTPUT_TOKENS)
-        max_output_tokens = max(2000, min(requested_tokens, MAX_OUTPUT_TOKENS))
-        temperature = max(0.8, data.get("temperature", 1.0))
-        top_p = max(0.9, data.get("top_p", 0.95))
-
-        gemini_data = {
-            "contents": contents,
-        }
-        
-        if system_instruction:
-            gemini_data["system_instruction"] = {
-                "parts": [{"text": system_instruction}]
-            }
-        
-        gemini_data["generationConfig"] = {
-            "maxOutputTokens": max_output_tokens,
-            "temperature": temperature,
-            "topP": top_p,
-            "topK": 40,
-            "presencePenalty": 0,
-            "frequencyPenalty": 0,
-        }
-        
-        gemini_data["safetySettings"] = get_safety_settings()
-
-        # ===== ОТПРАВКА К GEMINI =====
-        response = requests.post(
-            f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent?key={gemini_key}",
-            json=gemini_data,
-            headers={'Content-Type': 'application/json'},
-            timeout=120,
-            verify=certifi.where()
-        )
-
-        if response.status_code == 429:
-            key_usage[gemini_key]['errors'] += 1
+        while retry_count < max_retries:
+            # Получаем лучший ключ
+            gemini_key = balancer.get_best_key()
+            key_usage[gemini_key]['requests'] += 1
             key_usage[gemini_key]['last_used'] = datetime.now().isoformat()
-            logger.warning(f"Rate limit for key: {gemini_key[:20]}... Switching key.")
-            return chat_completions()
 
-        if response.status_code != 200:
-            key_usage[gemini_key]['errors'] += 1
-            logger.error(f"Gemini API error {response.status_code} for key: {gemini_key[:20]}...")
-            return jsonify({"error": f"Gemini API error: {response.status_code}"}), 500
+            logger.info(f"Using key: {gemini_key[:20]}... | Requests: {key_usage[gemini_key]['requests']}")
 
-        gemini_response = response.json()
+            # ===== ОБРАБОТКА КОМАНД ИЗ LOREBARY =====
+            jailbreak_active = check_for_tag(data, '<JAILBREAK=on>')
+            prefill_disabled = check_for_tag(data, '<PREFILL-OFF>')
+            ooc_disabled = check_for_tag(data, '<OOCINJECTION-OFF>')
+            force_markdown = check_for_tag(data, '<FORCEMARKDOWN>')
+            has_autoplot = check_for_tag(data, '<AUTOPLOT>')
+            has_crazymode = check_for_tag(data, '<CRAZYMODE>')
+            has_medieval = check_for_tag(data, '<MEDIEVALMODE>')
+            has_better_spice = check_for_tag(data, '<BETTERSPICEMODE>')
+            has_slowburn = check_for_tag(data, '<SLOWBURN>')
+            # Извлекаем параметры
+            bypass_level = extract_bypass_level(data)
+            custom_prefill = extract_custom_content(data, '<CUSTOMPREFILL>', '</CUSTOMPREFILL>')
+            custom_ooc = extract_custom_content(data, '<CUSTOMOOC>', '</CUSTOMOOC>')
+            autoplot_chance = extract_chance_from_command(data, '<AUTOPLOT-CHANCE', 15)
+            spice_chance = extract_chance_from_command(data, '<BETTERSPICE-CHANCE', 20)
 
-        if ('candidates' not in gemini_response or
-            not gemini_response['candidates'] or
-            'content' not in gemini_response['candidates'][0] or
-            'parts' not in gemini_response['candidates'][0]['content']):
-            logger.error(f"Invalid Gemini response structure")
-            return jsonify({"error": "Invalid response from Gemini API"}), 500
+            logger.info(f"Commands: JB={jailbreak_active}, Bypass={bypass_level}, AutoPlot={has_autoplot}, Medieval={has_medieval}")
 
-        response_text = gemini_response["candidates"][0]["content"]["parts"][0]["text"]
+            # ===== ФОРМИРОВАНИЕ СООБЩЕНИЙ =====
+            contents = []
+            system_instruction = ""
 
-        # ===== ПОСТ-ОБРАБОТКА =====
-        # Декодируем обход цензуры
-        if bypass_level != "NO":
-            response_text = decode_bypassed_text(response_text)
-        
-        # Форматирование
-        if ENABLE_RESPONSE_FORMATTING or force_markdown:
-            response_text = format_response_text(response_text)
-        
-        # Очистка
-        response_text = clean_response_text(response_text)
+            # Добавляем джейлбрейк если активен
+            if jailbreak_active:
+                system_instruction = JAILBREAK_TEXT
+                logger.info("✓ Jailbreak activated")
 
-        total_input_chars = sum(len(msg["content"]) for msg in data["messages"])
+            # Обработка сообщений
+            for i, msg in enumerate(data["messages"]):
+                role = "user" if msg["role"] == "user" else "model"
+                content = msg["content"]
+                
+                # Применяем обход цензуры к non-user сообщениям
+                if bypass_level != "NO" and role != "user":
+                    if bypass_level == "SYSTEM" and msg["role"] == "system":
+                        content = apply_bypass_to_text(content, "STRONG")
+                    elif bypass_level != "SYSTEM":
+                        content = apply_bypass_to_text(content, bypass_level)
+                
+                # Для последнего user сообщения добавляем OOC
+                if role == "user" and i == len(data["messages"]) - 1 and not ooc_disabled:
+                    ooc_text = get_ooc_instruction2()
+                    
+                    # Добавляем специальные режимы
+                    if has_autoplot and random.randint(1, autoplot_chance) == 1:
+                        ooc_text += get_autoplot_ooc()
+                        logger.info("⚡ AutoPlot triggered!")
+                    
+                    if has_crazymode:
+                        ooc_text += get_crazymode_ooc()
+                        logger.info("🎭 CrazyMode activated!")
+                    
+                    if has_medieval:
+                        ooc_text += get_medieval_ooc()
+                        logger.info("🏰 Medieval mode activated!")
+                    
+                    if has_better_spice:
+                        if detect_spicy_content(content) or random.randint(1, spice_chance) == 1:
+                            ooc_text += get_better_spice_ooc()
+                            logger.info("🔥 Spice mode triggered!")
+                        
+                    if has_slowburn:
+                        ooc_text += get_slowburn_ooc()
+                        logger.info("🕰️ Slowburn mode activated!")
+                    
+                    if custom_ooc:
+                        ooc_text += f"\n[OOC: {custom_ooc}]"
+                    
+                    ooc_text += get_ooc_instruction1()
+                    content += ooc_text
+                
+                contents.append({
+                    "role": role,
+                    "parts": [{"text": content}]
+                })
+            
+            # Добавляем prefill если не отключен
+            if not prefill_disabled:
+                if custom_prefill:
+                    prefill_text = custom_prefill
+                elif has_medieval:
+                    prefill_text = get_medieval_prefill()
+                else:
+                    prefill_text = get_default_prefill()
+                
+                contents.append({
+                    "role": "model",
+                    "parts": [{"text": prefill_text}]
+                })
+                logger.info("✓ Prefill added")
 
-        openai_format = {
-            "id": f"chatcmpl-{random.randint(1000,9999)}",
-            "object": "chat.completion",
-            "created": int(datetime.now().timestamp()),
-            "model": GEMINI_MODEL,
-            "choices": [{
-                "index": 0,
-                "message": {
-                    "role": "assistant",
-                    "content": response_text
-                },
-                "finish_reason": "stop"
-            }],
-            "usage": {
-                "prompt_tokens": total_input_chars // 4,
-                "completion_tokens": len(response_text) // 4,
-                "total_tokens": (total_input_chars + len(response_text)) // 4
+            # ===== НАСТРОЙКИ ГЕНЕРАЦИИ =====
+            requested_tokens = data.get("max_tokens", DEFAULT_OUTPUT_TOKENS)
+            max_output_tokens = max(2000, min(requested_tokens, MAX_OUTPUT_TOKENS))
+            temperature = max(0.8, data.get("temperature", 1.0))
+            top_p = max(0.9, data.get("top_p", 0.95))
+
+            gemini_data = {
+                "contents": contents,
             }
-        }
+            
+            if system_instruction:
+                gemini_data["system_instruction"] = {
+                    "parts": [{"text": system_instruction}]
+                }
+            
+            gemini_data["generationConfig"] = {
+                "maxOutputTokens": max_output_tokens,
+                "temperature": temperature,
+                "topP": top_p,
+                "topK": 40,
+                "presencePenalty": 0,
+                "frequencyPenalty": 0,
+            }
+            
+            gemini_data["safetySettings"] = get_safety_settings()
 
-        logger.info(f"✅ Success! Input: {total_input_chars} chars, Output: {len(response_text)} chars")
-        return jsonify(openai_format)
+            # ===== ОТПРАВКА К GEMINI =====
+            try:
+                response = requests.post(
+                    f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent?key={gemini_key}",
+                    json=gemini_data,
+                    headers={'Content-Type': 'application/json'},
+                    timeout=120,
+                    verify=certifi.where()
+                )
+            except requests.Timeout:
+                logger.error(f"Timeout for key: {gemini_key}")
+                key_usage[gemini_key]['errors'] += 1
+                retry_count += 1
+                continue
 
-    except requests.Timeout:
-        logger.error(f"Timeout for key: {gemini_key}")
-        key_usage[gemini_key]['errors'] += 1
-        return chat_completions()
+            if response.status_code == 429:
+                key_usage[gemini_key]['errors'] += 1
+                key_usage[gemini_key]['last_used'] = datetime.now().isoformat()
+                logger.warning(f"Rate limit for key: {gemini_key[:20]}... Trying next key.")
+                retry_count += 1
+                continue
+
+            if response.status_code != 200:
+                key_usage[gemini_key]['errors'] += 1
+                logger.error(f"Gemini API error {response.status_code} for key: {gemini_key[:20]}...")
+                return jsonify({"error": f"Gemini API error: {response.status_code}"}), 500
+
+            gemini_response = response.json()
+
+            if ('candidates' not in gemini_response or
+                not gemini_response['candidates'] or
+                'content' not in gemini_response['candidates'][0] or
+                'parts' not in gemini_response['candidates'][0]['content']):
+                logger.error(f"Invalid Gemini response structure")
+                return jsonify({"error": "Invalid response from Gemini API"}), 500
+
+            response_text = gemini_response["candidates"][0]["content"]["parts"][0]["text"]
+
+            # ===== ПОСТ-ОБРАБОТКА =====
+            # Декодируем обход цензуры
+            if bypass_level != "NO":
+                response_text = decode_bypassed_text(response_text)
+            
+            # Форматирование
+            if ENABLE_RESPONSE_FORMATTING or force_markdown:
+                response_text = format_response_text(response_text)
+            
+            # Очистка
+            response_text = clean_response_text(response_text)
+
+            total_input_chars = sum(len(msg["content"]) for msg in data["messages"])
+
+            openai_format = {
+                "id": f"chatcmpl-{random.randint(1000,9999)}",
+                "object": "chat.completion",
+                "created": int(datetime.now().timestamp()),
+                "model": GEMINI_MODEL,
+                "choices": [{
+                    "index": 0,
+                    "message": {
+                        "role": "assistant",
+                        "content": response_text
+                    },
+                    "finish_reason": "stop"
+                }],
+                "usage": {
+                    "prompt_tokens": total_input_chars // 4,
+                    "completion_tokens": len(response_text) // 4,
+                    "total_tokens": (total_input_chars + len(response_text)) // 4
+                }
+            }
+
+            logger.info(f"✅ Success! Input: {total_input_chars} chars, Output: {len(response_text)} chars")
+            return jsonify(openai_format)
+
+        # Если все попытки исчерпаны
+        logger.error("All keys exhausted or in cooldown")
+        return jsonify({"error": "All API keys are rate-limited or errored"}), 429
+
     except Exception as e:
         logger.exception(f"❌ Unexpected error: {e}")
         return jsonify({"error": str(e)}), 500
