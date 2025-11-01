@@ -234,23 +234,23 @@ def apply_bypass_to_text(text, level):
 def apply_light_bypass(text):
     """Легкий обход - пробелы между буквами"""
     bypass_words = {
-        r'\bsex(?:ual|ually)?\b': "s ex",
-        r'\bporn(?:ographic|ography)?\b': "p orn",
-        r'\bnud(?:e|ity)\b': "nu de",
-        r'\bnaked(?:ness)?\b': "na ked",
-        r'\bfuck(?:ing|ed|er)?\b': "f uck",
-        r'\bpenis(?:es)?\b': "pe nis",
-        r'\bvagin(?:a|al)\b': "va gina",
-        r'\bkill(?:ing|ed|er)?\b': "k ill",
-        r'\bmurder(?:ing|ed|er|ous)?\b': "mur der",
-        r'\bviolen(?:t|ce)\b': "vio lence",
-        r'\brap(?:e|ing|ed|ist)\b': "r ape",
-        r'\btortur(?:e|ing|ed)\b': "tor ture",
-        r'\bchild(?:ren)?\b': "chi ld",
-        r'\bkid(?:s|do)?\b': "k id",
-        r'\bblood(?:y|ied)?\b': "blo od",
-        r'\bgor(?:e|y|ier)\b': "g ore",
-        r'\bdeath(?:s|ly)?\b': "de ath",
+        r'\bsex(?:ual|ually)?\b': "s ex\1",
+        r'\bporn(?:ographic|ography)?\b': "p orn\1",
+        r'\bnud(?:e|ity)\b': "nu de\1",
+        r'\bnaked(?:ness)?\b': "na ked\1",
+        r'\bfuck(?:ing|ed|er)?\b': "f uck\1",
+        r'\bpenis(?:es)?\b': "pe nis\1",
+        r'\bvagin(?:a|al)\b': "va gina\1",
+        r'\bkill(?:ing|ed|er)?\b': "k ill\1",
+        r'\bmurder(?:ing|ed|er|ous)?\b': "mur der\1",
+        r'\bviolen(?:t|ce)\b': "vio lence\1",
+        r'\brap(?:e|ing|ed|ist)\b': "r ape\1",
+        r'\btortur(?:e|ing|ed)\b': "tor ture\1",
+        r'\bchild(?:ren)?\b': "chi ld\1",
+        r'\bkid(?:s|do)?\b': "k id\1",
+        r'\bblood(?:y|ied)?\b': "blo od\1",
+        r'\bgor(?:e|y|ier)\b': "g ore\1",
+        r'\bdeath(?:s|ly)?\b': "de ath\1",
     }
     
     for pattern, replacement in bypass_words.items():
@@ -261,22 +261,23 @@ def apply_light_bypass(text):
 def apply_medium_bypass(text):
     """Средний обход - точки между буквами"""
     bypass_words = {
-        r'\bsex\b': "s.ex",
-        r'\bporn\b': "p.orn",
-        r'\bnude\b': "n.ude",
-        r'\bnaked\b': "n.aked",
-        r'\bfuck\b': "f.uck",
-        r'\bpenis\b': "pe.nis",
-        r'\bvagina\b': "va.gina",
-        r'\bkill\b': "k.ill",
-        r'\bmurder\b': "mur.der",
-        r'\bviolence\b': "vio.lence",
-        r'\brape\b': "r.ape",
-        r'\btorture\b': "tor.ture",
-        r'\bchild\b': "ch.ild",
-        r'\bkid\b': "k.id",
-        r'\bblood\b': "bl.ood",
-        r'\bdeath\b': "de.ath",
+        r'\bsex(?:ual|ually)?\b': "s.ex\1",
+        r'\bporn(?:ographic|ography)?\b': "p.orn\1",
+        r'\bnud(?:e|ity)\b': "n.ude\1",
+        r'\bnaked(?:ness)?\b': "n.aked\1",
+        r'\bfuck(?:ing|ed|er)?\b': "f.uck\1",
+        r'\bpenis(?:es)?\b': "pe.nis\1",
+        r'\bvagin(?:a|al)\b': "va.gina\1",
+        r'\bkill(?:ing|ed|er)?\b': "k.ill\1",
+        r'\bmurder(?:ing|ed|er|ous)?\b': "mur.der\1",
+        r'\bviolen(?:t|ce)\b': "vio.lence\1",
+        r'\brap(?:e|ing|ed|ist)\b': "r.ape\1",
+        r'\btortur(?:e|ing|ed)\b': "tor.ture\1",
+        r'\bchild(?:ren)?\b': "ch.ild\1",
+        r'\bkid(?:s|do)?\b': "k.id\1",
+        r'\bblood(?:y|ied)?\b': "bl.ood\1",
+        r'\bgor(?:e|y|ier)\b': "g.ore\1",
+        r'\bdeath(?:s|ly)?\b': "de.ath\1",
     }
     
     for pattern, replacement in bypass_words.items():
@@ -287,22 +288,23 @@ def apply_medium_bypass(text):
 def apply_strong_bypass(text):
     """Сильный обход - Unicode модификаторы"""
     bypass_words = {
-        r'\bsex\b': "s̵e̵x̵",
-        r'\bporn\b': "p̵o̵r̵n̵",
-        r'\bnude\b': "n̵u̵d̵e̵",
-        r'\bnaked\b': "n̵a̵k̵e̵d̵",
-        r'\bfuck\b': "f̵u̵c̵k̵",
-        r'\bpenis\b': "p̵e̵n̵i̵s̵",
-        r'\bvagina\b': "v̵a̵g̵i̵n̵a̵",
-        r'\bkill\b': "k̵i̵l̵l̵",
-        r'\bmurder\b': "m̵u̵r̵d̵e̵r̵",
-        r'\bviolence\b': "v̵i̵o̵l̵e̵n̵c̵e̵",
-        r'\brape\b': "r̵a̵p̵e̵",
-        r'\btorture\b': "t̵o̵r̵t̵u̵r̵e̵",
-        r'\bchild\b': "c̵h̵i̵l̵d̵",
-        r'\bkid\b': "k̵i̵d̵",
-        r'\bblood\b': "b̵l̵o̵o̵d̵",
-        r'\bdeath\b': "d̵e̵a̵t̵h̵",
+        r'\bsex(?:ual|ually)?\b': "s̵e̵x̵\1",
+        r'\bporn(?:ographic|ography)?\b': "p̵o̵r̵n̵\1",
+        r'\bnud(?:e|ity)\b': "n̵u̵d̵e̵\1",
+        r'\bnaked(?:ness)?\b': "n̵a̵k̵e̵d̵\1",
+        r'\bfuck(?:ing|ed|er)?\b': "f̵u̵c̵k̵\1",
+        r'\bpenis(?:es)?\b': "p̵e̵n̵i̵s̵\1",
+        r'\bvagin(?:a|al)\b': "v̵a̵g̵i̵n̵a̵\1",
+        r'\bkill(?:ing|ed|er)?\b': "k̵i̵l̵l̵\1",
+        r'\bmurder(?:ing|ed|er|ous)?\b': "m̵u̵r̵d̵e̵r̵\1",
+        r'\bviolen(?:t|ce)\b': "v̵i̵o̵l̵e̵n̵c̵e̵\1",
+        r'\brap(?:e|ing|ed|ist)\b': "r̵a̵p̵e̵\1",
+        r'\btortur(?:e|ing|ed)\b': "t̵o̵r̵t̵u̵r̵e̵\1",
+        r'\bchild(?:ren)?\b': "c̵h̵i̵l̵d̵\1",
+        r'\bkid(?:s|do)?\b': "k̵i̵d̵\1",
+        r'\bblood(?:y|ied)?\b': "b̵l̵o̵o̵d̵\1",
+        r'\bgor(?:e|y|ier)\b': "g̵o̵r̵e̵\1",
+        r'\bdeath(?:s|ly)?\b': "d̵e̵a̵t̵h̵\1",
     }
     
     for pattern, replacement in bypass_words.items():
@@ -315,27 +317,62 @@ def decode_bypassed_text(text):
     if not text:
         return text
     
-    # Обратные замены для всех типов обхода
+    # Обратные замены для всех типов обхода, с учётом суффиксов
     reverse_mappings = {
-        # Strong bypass
-        "s̵e̵x̵": "sex", "p̵o̵r̵n̵": "porn", "n̵u̵d̵e̵": "nude",
-        "n̵a̵k̵e̵d̵": "naked", "f̵u̵c̵k̵": "fuck", "p̵e̵n̵i̵s̵": "penis",
-        "v̵a̵g̵i̵n̵a̵": "vagina", "k̵i̵l̵l̵": "kill", "m̵u̵r̵d̵e̵r̵": "murder",
-        "v̵i̵o̵l̵e̵n̵c̵e̵": "violence", "r̵a̵p̵e̵": "rape", "t̵o̵r̵t̵u̵r̵e̵": "torture",
-        "c̵h̵i̵l̵d̵": "child", "k̵i̵d̵": "kid", "b̵l̵o̵o̵d̵": "blood",
-        "d̵e̵a̵t̵h̵": "death",
+        # Strong bypass with suffixes
+        "s̵e̵x̵": "sex", "s̵e̵x̵ual": "sexual", "s̵e̵x̵ually": "sexually",
+        "p̵o̵r̵n̵": "porn", "p̵o̵r̵n̵ographic": "pornographic", "p̵o̵r̵n̵ography": "pornography",
+        "n̵u̵d̵e̵": "nude", "n̵u̵d̵ity": "nudity",
+        "n̵a̵k̵e̵d̵": "naked", "n̵a̵k̵e̵d̵ness": "nakedness",
+        "f̵u̵c̵k̵": "fuck", "f̵u̵c̵k̵ing": "fucking", "f̵u̵c̵k̵ed": "fucked", "f̵u̵c̵k̵er": "fucker",
+        "p̵e̵n̵i̵s̵": "penis", "p̵e̵n̵i̵s̵es": "penises",
+        "v̵a̵g̵i̵n̵a̵": "vagina", "v̵a̵g̵i̵n̵al": "vaginal",
+        "k̵i̵l̵l̵": "kill", "k̵i̵l̵l̵ing": "killing", "k̵i̵l̵l̵ed": "killed", "k̵i̵l̵l̵er": "killer",
+        "m̵u̵r̵d̵e̵r̵": "murder", "m̵u̵r̵d̵e̵r̵ing": "murdering", "m̵u̵r̵d̵e̵r̵ed": "murdered", "m̵u̵r̵d̵e̵r̵er": "murderer", "m̵u̵r̵d̵e̵r̵ous": "murderous",
+        "v̵i̵o̵l̵e̵n̵c̵e̵": "violence", "v̵i̵o̵l̵e̵n̵t": "violent",
+        "r̵a̵p̵e̵": "rape", "r̵a̵p̵e̵ing": "raping", "r̵a̵p̵e̵ed": "raped", "r̵a̵p̵i̵s̵t": "rapist",
+        "t̵o̵r̵t̵u̵r̵e̵": "torture", "t̵o̵r̵t̵u̵r̵i̵n̵g": "torturing", "t̵o̵r̵t̵u̵r̵e̵d": "tortured",
+        "c̵h̵i̵l̵d̵": "child", "c̵h̵i̵l̵d̵ren": "children",
+        "k̵i̵d̵": "kid", "k̵i̵d̵s": "kids", "k̵i̵d̵do": "kiddo",
+        "b̵l̵o̵o̵d̵": "blood", "b̵l̵o̵o̵d̵y": "bloody", "b̵l̵o̵o̵d̵ied": "bloodied",
+        "g̵o̵r̵e̵": "gore", "g̵o̵r̵y": "gory", "g̵o̵r̵i̵e̵r": "gorier",
+        "d̵e̵a̵t̵h̵": "death", "d̵e̵a̵t̵h̵s": "deaths", "d̵e̵a̵t̵h̵ly": "deathly",
         # Medium bypass
-        "s.ex": "sex", "p.orn": "porn", "n.ude": "nude", "n.aked": "naked",
-        "f.uck": "fuck", "pe.nis": "penis", "va.gina": "vagina",
-        "k.ill": "kill", "mur.der": "murder", "vio.lence": "violence",
-        "r.ape": "rape", "tor.ture": "torture", "ch.ild": "child",
-        "k.id": "kid", "bl.ood": "blood", "de.ath": "death",
+        "s.ex": "sex", "s.exual": "sexual", "s.exually": "sexually",
+        "p.orn": "porn", "p.ornographic": "pornographic", "p.ornography": "pornography",
+        "n.ude": "nude", "n.udity": "nudity",
+        "n.aked": "naked", "n.akedness": "nakedness",
+        "f.uck": "fuck", "f.ucking": "fucking", "f.ucked": "fucked", "f.ucker": "fucker",
+        "pe.nis": "penis", "pe.nises": "penises",
+        "va.gina": "vagina", "va.ginal": "vaginal",
+        "k.ill": "kill", "k.illing": "killing", "k.illed": "killed", "k.iller": "killer",
+        "mur.der": "murder", "mur.dering": "murdering", "mur.dered": "murdered", "mur.derer": "murderer", "mur.derous": "murderous",
+        "vio.lence": "violence", "vio.lent": "violent",
+        "r.ape": "rape", "r.aping": "raping", "r.aped": "raped", "r.apist": "rapist",
+        "tor.ture": "torture", "tor.turing": "torturing", "tor.tured": "tortured",
+        "ch.ild": "child", "ch.ildren": "children",
+        "k.id": "kid", "k.ids": "kids", "k.iddo": "kiddo",
+        "bl.ood": "blood", "bl.oody": "bloody", "bl.oodied": "bloodied",
+        "g.ore": "gore", "g.ory": "gory", "g.orier": "gorier",
+        "de.ath": "death", "de.aths": "deaths", "de.athly": "deathly",
         # Light bypass
-        "s ex": "sex", "p orn": "porn", "nu de": "nude", "na ked": "naked",
-        "f uck": "fuck", "pe nis": "penis", "va gina": "vagina",
-        "k ill": "kill", "mur der": "murder", "vio lence": "violence",
-        "r ape": "rape", "tor ture": "torture", "chi ld": "child",
-        "k id": "kid", "blo od": "blood", "g ore": "gore", "de ath": "death",
+        "s ex": "sex", "s exual": "sexual", "s exually": "sexually",
+        "p orn": "porn", "p ornographic": "pornographic", "p ornography": "pornography",
+        "nu de": "nude", "nu dity": "nudity",
+        "na ked": "naked", "na kedness": "nakedness",
+        "f uck": "fuck", "f ucking": "fucking", "f ucked": "fucked", "f ucker": "fucker",
+        "pe nis": "penis", "pe nises": "penises",
+        "va gina": "vagina", "va ginal": "vaginal",
+        "k ill": "kill", "k illing": "killing", "k illed": "killed", "k iller": "killer",
+        "mur der": "murder", "mur dering": "murdering", "mur dered": "murdered", "mur derer": "murderer", "mur derous": "murderous",
+        "vio lence": "violence", "vio lent": "violent",
+        "r ape": "rape", "r aping": "raping", "r aped": "raped", "r apist": "rapist",
+        "tor ture": "torture", "tor turing": "torturing", "tor tured": "tortured",
+        "chi ld": "child", "chi ldren": "children",
+        "k id": "kid", "k ids": "kids", "k iddo": "kiddo",
+        "blo od": "blood", "blo ody": "bloody", "blo odied": "bloodied",
+        "g ore": "gore", "g ory": "gory", "g orier": "gorier",
+        "de ath": "death", "de aths": "deaths", "de athly": "deathly",
     }
     
     for pattern, replacement in reverse_mappings.items():
@@ -487,8 +524,8 @@ def clean_response_text(text):
     text = re.sub(r'\[TS:[^\]]+\]\s*', '', text)
     
     # Убираем длинный паттерн правил
-    long_pattern = "{{char}} will strictly NEVER speak for {{user}} or describe actions as {{user}} and will allow {{user}} to dictate their own actions. {{char}} will speak, roleplay, and write in third-person view. Each reply from {{char}} will be different, and {{char}} will not repeat similar replies. I will never play, control or dictate {{user}}'s actions, thoughts, or feelings."
-    text = text.replace(long_pattern, '')
+    long_pattern = r'{{char}} will strictly NEVER speak for {{user}} or describe actions as {{user}} and will allow {{user}} to dictate their own actions. {{char}} will speak, roleplay, and write in third-person view. Each reply from {{char}} will be different, and {{char}} will not repeat similar replies. I will never play, control or dictate {{user}}'s actions, thoughts, or feelings.'
+    text = re.sub(long_pattern, '', text, flags=re.IGNORECASE | re.DOTALL)
     
     # Убираем короткий паттерн
     text = re.sub(r'-\s*\{\{(char|user)\}\}\s*[:.]?', '', text)
@@ -499,11 +536,9 @@ def clean_response_text(text):
     return text.strip()
 
 class KeyBalancer:
-    """
-    Балансировщик ключей с учетом ошибок и cooldown.
-    """
+    """Балансировщик ключей с учетом ошибок и cooldown."""
     def __init__(self):
-        self.cooldown_period = timedelta(minutes=5)
+        self.cooldown_period = timedelta(minutes=15)  # Увеличено до 15 мин как просили
 
     def get_best_key(self):
         now = datetime.now()
@@ -512,7 +547,7 @@ class KeyBalancer:
             if v['errors'] < 3 and (v['last_used'] is None or now - datetime.fromisoformat(v['last_used']) > self.cooldown_period)
         ]
         if not available_keys:
-            available_keys = GEMINI_KEYS  # Fallback на все ключи
+            available_keys = GEMINI_KEYS
         key = min(available_keys, key=lambda k: key_usage[k]['requests'])
         return key
 
@@ -565,19 +600,24 @@ def chat_completions():
     """OpenAI-совместимый эндпоинт для генерации чата через Gemini."""
     if request.method == 'OPTIONS':
         return '', 200
-try:
+
+    try:
         data = request.json
         if not data or 'messages' not in data:
             return jsonify({"error": "Invalid request format"}), 400
 
-        gemini_key = balancer.get_best_key()
-        key_usage[gemini_key]['requests'] += 1
-        key_usage[gemini_key]['last_used'] = datetime.now().isoformat()
+        max_retries = len(GEMINI_KEYS) * 2  # Увеличено для больше попыток
+        retry_count = 0
 
-        logger.info(f"Using key: {gemini_key[:20]}... | Requests: {key_usage[gemini_key]['requests']}")
+        import time  # Добавлено для backoff
 
-        contents = []
-        system_instruction = DETAILED_INSTRUCTION
+        while retry_count < max_retries:
+            # Получаем лучший ключ
+            gemini_key = balancer.get_best_key()
+            key_usage[gemini_key]['requests'] += 1
+            key_usage[gemini_key]['last_used'] = datetime.now().isoformat()
+
+            logger.info(f"Using key: {gemini_key[:20]}... | Requests: {key_usage[gemini_key]['requests']}")
 
             # ===== ОБРАБОТКА КОМАНД ИЗ LOREBARY =====
             jailbreak_active = check_for_tag(data, '<JAILBREAK=on>')
@@ -638,7 +678,7 @@ try:
                     
                     if has_better_spice:
                         if detect_spicy_content(content) or random.randint(1, spice_chance) == 1:
-                            ooc_text += get_better_spice_ooc()
+                            ooc_text += get_random_spice_instruction() + get_better_spice_ooc()  # Добавили random spice для разнообразия
                             logger.info("🔥 Spice mode triggered!")
                         
                     if has_slowburn:
@@ -709,6 +749,10 @@ try:
             except requests.Timeout:
                 logger.error(f"Timeout for key: {gemini_key}")
                 key_usage[gemini_key]['errors'] += 1
+                # Exponential backoff
+                backoff_time = min(2 ** retry_count, 60)  # Max 60 sec
+                logger.info(f"Backoff for {backoff_time} seconds.")
+                time.sleep(backoff_time)
                 retry_count += 1
                 continue
 
@@ -716,13 +760,22 @@ try:
                 key_usage[gemini_key]['errors'] += 1
                 key_usage[gemini_key]['last_used'] = datetime.now().isoformat()
                 logger.warning(f"Rate limit for key: {gemini_key[:20]}... Trying next key.")
+                # Exponential backoff
+                backoff_time = min(2 ** retry_count, 60)
+                logger.info(f"Backoff for {backoff_time} seconds.")
+                time.sleep(backoff_time)
                 retry_count += 1
                 continue
 
             if response.status_code != 200:
                 key_usage[gemini_key]['errors'] += 1
-                logger.error(f"Gemini API error {response.status_code} for key: {gemini_key[:20]}...")
-                return jsonify({"error": f"Gemini API error: {response.status_code}"}), 500
+                logger.error(f"Gemini API error {response.status_code} for key: {gemini_key[:20]}... Response: {response.text}")
+                # Backoff
+                backoff_time = min(2 ** retry_count, 60)
+                logger.info(f"Backoff for {backoff_time} seconds.")
+                time.sleep(backoff_time)
+                retry_count += 1
+                continue
 
             gemini_response = response.json()
 
@@ -730,7 +783,7 @@ try:
                 not gemini_response['candidates'] or
                 'content' not in gemini_response['candidates'][0] or
                 'parts' not in gemini_response['candidates'][0]['content']):
-                logger.error(f"Invalid Gemini response structure")
+                logger.error(f"Invalid Gemini response structure: {gemini_response}")
                 return jsonify({"error": "Invalid response from Gemini API"}), 500
 
             response_text = gemini_response["candidates"][0]["content"]["parts"][0]["text"]
@@ -768,6 +821,9 @@ try:
                     "total_tokens": (total_input_chars + len(response_text)) // 4
                 }
             }
+
+            # Reset errors on success
+            key_usage[gemini_key]['errors'] = 0
 
             logger.info(f"✅ Success! Input: {total_input_chars} chars, Output: {len(response_text)} chars")
             return jsonify(openai_format)
@@ -1095,6 +1151,11 @@ User: &lt;JAILBREAK=on&gt;&lt;BYPASS=STRONG&gt; Your prompt here
     """
 
 if __name__ == '__main__':
+    # Reset key usage at start
+    for key in key_usage:
+        key_usage[key]['errors'] = 0
+        key_usage[key]['requests'] = 0
+
     print("🚀 Enhanced Gemini Proxy with Lorebary starting...")
     print(f"📊 Available keys: {len(GEMINI_KEYS)}")
     print(f"🔑 Your master key: {YOUR_MASTER_KEY[:10]}...")
