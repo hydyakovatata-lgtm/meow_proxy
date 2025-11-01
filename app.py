@@ -501,7 +501,7 @@ def clean_response_text(text):
 class KeyBalancer:
     """Балансировщик ключей с учетом ошибок и cooldown."""
     def __init__(self):
-        self.cooldown_period = timedelta(minutes=5)
+        self.cooldown_period = timedelta(minutes=15)
 
     def get_best_key(self):
         now = datetime.now()
