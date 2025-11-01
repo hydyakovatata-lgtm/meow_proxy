@@ -199,7 +199,8 @@ def get_random_spice_instruction():
         "[OOC: Initiate spontaneous intimacy/self-pleasure now.]"
     ]
     return "\n" + random.choice(base_instructions)
-
+def get_slowburn_ooc():
+    return "\n[OOC: Develop relationships VERY gradually. Focus on emotional connection and character development before physical intimacy. Build tension slowly through meaningful interactions, subtle moments, and shared experiences. Let romantic developments feel earned and natural over time.]"
 # ===== ОБХОД ЦЕНЗУРЫ ИЗ LOREBARY =====
 def apply_bypass_to_text(text, level):
     """Применяет обход цензуры к тексту"""
@@ -565,7 +566,7 @@ def chat_completions():
         has_crazymode = check_for_tag(data, '<CRAZYMODE>')
         has_medieval = check_for_tag(data, '<MEDIEVALMODE>')
         has_better_spice = check_for_tag(data, '<BETTERSPICEMODE>')
-        
+        has_slowburn = check_slowburn_tag(data, '<SLOWBURN>')
         # Извлекаем параметры
         bypass_level = extract_bypass_level(data)
         custom_prefill = extract_custom_content(data, '<CUSTOMPREFILL>', '</CUSTOMPREFILL>')
@@ -617,6 +618,9 @@ def chat_completions():
                     if detect_spicy_content(content) or random.randint(1, spice_chance) == 1:
                         ooc_text += get_better_spice_ooc()
                         logger.info("🔥 Spice mode triggered!")
+            if has_slowburn:
+                   ooc_text += get_slowburn_ooc()
+                      logger.info("🕰️ Slowburn mode activated!")
                 
                 if custom_ooc:
                     ooc_text += f"\n[OOC: {custom_ooc}]"
@@ -797,7 +801,8 @@ def model_info():
             "<CRAZYMODE>": "Режим хаоса",
             "<MEDIEVALMODE>": "Средневековый режим",
             "<BETTERSPICEMODE>": "Режим spicy контента",
-            "<BETTERSPICE-CHANCE=1:XX>": "Шанс Spice (по умолчанию 1:20)"
+            "<BETTERSPICE-CHANCE=1:XX>": "Шанс Spice (по умолчанию 1:20)",
+            "<SLOWBURN>": "Режим медленного развития отношений"
         }
     })
 
