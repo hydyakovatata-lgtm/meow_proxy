@@ -201,12 +201,13 @@ def get_slowburn_ooc():
     return "\n[OOC: Develop relationships VERY gradually. Focus on emotional connection and character development before physical intimacy. Build tension slowly through meaningful interactions, subtle moments, and shared experiences. Let romantic developments feel earned and natural over time.]"
 
 # ===== ОБХОД ЦЕНЗУРЫ ИЗ LOREBARY =====
+# ИСПРАВЛЕНО: Теперь функции правильно обрабатывают суффиксы слов
 def apply_bypass_to_text(text, level):
     """Применяет обход цензуры к тексту"""
     if level == "NO" or not text:
         return text
     
-    # Защита summary секций
+    # Защита summary секций от модификации
     protected_sections = []
     summary_pattern = re.compile(r'<summary>(.*?)</summary>', re.DOTALL)
     
@@ -217,7 +218,7 @@ def apply_bypass_to_text(text, level):
     text = summary_pattern.sub(protect_summary, text)
     
     if level == "SYSTEM":
-        pass  # Не изменяем
+        pass  # Не изменяем системные сообщения
     elif level == "LOW":
         text = apply_light_bypass(text)
     elif level == "MEDIUM":
@@ -225,195 +226,450 @@ def apply_bypass_to_text(text, level):
     elif level == "STRONG":
         text = apply_strong_bypass(text)
     
-    # Восстанавливаем защищенные секции
+    # Восстанавливаем защищенные секции в исходном виде
     for i, section in enumerate(protected_sections):
         text = text.replace(f"__PROTECTED_SECTION_{i}__", f"<summary>{section}</summary>")
     
     return text
 
+# ИСПРАВЛЕНО: Функции теперь обрабатывают каждый вариант слова отдельно,
+# чтобы корректно работать с суффиксами
 def apply_light_bypass(text):
     """Легкий обход - пробелы между буквами"""
-    bypass_words = {
-        r'\bsex(?:ual|ually)?\b': "s ex\1",
-        r'\bporn(?:ographic|ography)?\b': "p orn\1",
-        r'\bnud(?:e|ity)\b': "nu de\1",
-        r'\bnaked(?:ness)?\b': "na ked\1",
-        r'\bfuck(?:ing|ed|er)?\b': "f uck\1",
-        r'\bpenis(?:es)?\b': "pe nis\1",
-        r'\bvagin(?:a|al)\b': "va gina\1",
-        r'\bkill(?:ing|ed|er)?\b': "k ill\1",
-        r'\bmurder(?:ing|ed|er|ous)?\b': "mur der\1",
-        r'\bviolen(?:t|ce)\b': "vio lence\1",
-        r'\brap(?:e|ing|ed|ist)\b': "r ape\1",
-        r'\btortur(?:e|ing|ed)\b': "tor ture\1",
-        r'\bchild(?:ren)?\b': "chi ld\1",
-        r'\bkid(?:s|do)?\b': "k id\1",
-        r'\bblood(?:y|ied)?\b': "blo od\1",
-        r'\bgor(?:e|y|ier)\b': "g ore\1",
-        r'\bdeath(?:s|ly)?\b': "de ath\1",
-    }
+    # Словарь с вариантами слов для обработки
+    # Каждое слово обрабатывается отдельно, чтобы избежать проблем с regex группами
+    bypass_patterns = [
+        (r'\bsexually\b', 's exually'),
+        (r'\bsexual\b', 's exual'),
+        (r'\bsex\b', 's ex'),
+        (r'\bpornography\b', 'p ornography'),
+        (r'\bpornographic\b', 'p ornographic'),
+        (r'\bporn\b', 'p orn'),
+        (r'\bnudity\b', 'nu dity'),
+        (r'\bnude\b', 'nu de'),
+        (r'\bnakedness\b', 'na kedness'),
+        (r'\bnaked\b', 'na ked'),
+        (r'\bfucking\b', 'f ucking'),
+        (r'\bfucked\b', 'f ucked'),
+        (r'\bfucker\b', 'f ucker'),
+        (r'\bfuck\b', 'f uck'),
+        (r'\bpenises\b', 'pe nises'),
+        (r'\bpenis\b', 'pe nis'),
+        (r'\bvaginal\b', 'va ginal'),
+        (r'\bvagina\b', 'va gina'),
+        (r'\bkilling\b', 'k illing'),
+        (r'\bkilled\b', 'k illed'),
+        (r'\bkiller\b', 'k iller'),
+        (r'\bkill\b', 'k ill'),
+        (r'\bmurderous\b', 'mur derous'),
+        (r'\bmurderer\b', 'mur derer'),
+        (r'\bmurdering\b', 'mur dering'),
+        (r'\bmurdered\b', 'mur dered'),
+        (r'\bmurder\b', 'mur der'),
+        (r'\bviolence\b', 'vio lence'),
+        (r'\bviolent\b', 'vio lent'),
+        (r'\brapist\b', 'r apist'),
+        (r'\braping\b', 'r aping'),
+        (r'\braped\b', 'r aped'),
+        (r'\brape\b', 'r ape'),
+        (r'\btorturing\b', 'tor turing'),
+        (r'\btortured\b', 'tor tured'),
+        (r'\btorture\b', 'tor ture'),
+        (r'\bchildren\b', 'chi ldren'),
+        (r'\bchild\b', 'chi ld'),
+        (r'\bkiddo\b', 'k iddo'),
+        (r'\bkids\b', 'k ids'),
+        (r'\bkid\b', 'k id'),
+        (r'\bbloodied\b', 'blo odied'),
+        (r'\bbloody\b', 'blo ody'),
+        (r'\bblood\b', 'blo od'),
+        (r'\bgorier\b', 'g orier'),
+        (r'\bgory\b', 'g ory'),
+        (r'\bgore\b', 'g ore'),
+        (r'\bdeathly\b', 'de athly'),
+        (r'\bdeaths\b', 'de aths'),
+        (r'\bdeath\b', 'de ath'),
+    ]
     
-    for pattern, replacement in bypass_words.items():
-        text = re.sub(pattern, lambda m: replacement.replace('\\1', m.group(1) or ''), text, flags=re.IGNORECASE)
+    # Применяем замены в порядке от более длинных к более коротким,
+    # чтобы избежать конфликтов (например, "sexually" должно обрабатываться раньше "sex")
+    for pattern, replacement in bypass_patterns:
+        text = re.sub(pattern, replacement, text, flags=re.IGNORECASE)
     
     return text
 
 def apply_medium_bypass(text):
     """Средний обход - точки между буквами"""
-    bypass_words = {
-        r'\bsex(?:ual|ually)?\b': "s.ex\1",
-        r'\bporn(?:ographic|ography)?\b': "p.orn\1",
-        r'\bnud(?:e|ity)\b': "n.ude\1",
-        r'\bnaked(?:ness)?\b': "n.aked\1",
-        r'\bfuck(?:ing|ed|er)?\b': "f.uck\1",
-        r'\bpenis(?:es)?\b': "pe.nis\1",
-        r'\bvagin(?:a|al)\b': "va.gina\1",
-        r'\bkill(?:ing|ed|er)?\b': "k.ill\1",
-        r'\bmurder(?:ing|ed|er|ous)?\b': "mur.der\1",
-        r'\bviolen(?:t|ce)\b': "vio.lence\1",
-        r'\brap(?:e|ing|ed|ist)\b': "r.ape\1",
-        r'\btortur(?:e|ing|ed)\b': "tor.ture\1",
-        r'\bchild(?:ren)?\b': "ch.ild\1",
-        r'\bkid(?:s|do)?\b': "k.id\1",
-        r'\bblood(?:y|ied)?\b': "bl.ood\1",
-        r'\bgor(?:e|y|ier)\b': "g.ore\1",
-        r'\bdeath(?:s|ly)?\b': "de.ath\1",
-    }
+    bypass_patterns = [
+        (r'\bsexually\b', 's.exually'),
+        (r'\bsexual\b', 's.exual'),
+        (r'\bsex\b', 's.ex'),
+        (r'\bpornography\b', 'p.ornography'),
+        (r'\bpornographic\b', 'p.ornographic'),
+        (r'\bporn\b', 'p.orn'),
+        (r'\bnudity\b', 'n.udity'),
+        (r'\bnude\b', 'n.ude'),
+        (r'\bnakedness\b', 'n.akedness'),
+        (r'\bnaked\b', 'n.aked'),
+        (r'\bfucking\b', 'f.ucking'),
+        (r'\bfucked\b', 'f.ucked'),
+        (r'\bfucker\b', 'f.ucker'),
+        (r'\bfuck\b', 'f.uck'),
+        (r'\bpenises\b', 'pe.nises'),
+        (r'\bpenis\b', 'pe.nis'),
+        (r'\bvaginal\b', 'va.ginal'),
+        (r'\bvagina\b', 'va.gina'),
+        (r'\bkilling\b', 'k.illing'),
+        (r'\bkilled\b', 'k.illed'),
+        (r'\bkiller\b', 'k.iller'),
+        (r'\bkill\b', 'k.ill'),
+        (r'\bmurderous\b', 'mur.derous'),
+        (r'\bmurderer\b', 'mur.derer'),
+        (r'\bmurdering\b', 'mur.dering'),
+        (r'\bmurdered\b', 'mur.dered'),
+        (r'\bmurder\b', 'mur.der'),
+        (r'\bviolence\b', 'vio.lence'),
+        (r'\bviolent\b', 'vio.lent'),
+        (r'\brapist\b', 'r.apist'),
+        (r'\braping\b', 'r.aping'),
+        (r'\braped\b', 'r.aped'),
+        (r'\brape\b', 'r.ape'),
+        (r'\btorturing\b', 'tor.turing'),
+        (r'\btortured\b', 'tor.tured'),
+        (r'\btorture\b', 'tor.ture'),
+        (r'\bchildren\b', 'ch.ildren'),
+        (r'\bchild\b', 'ch.ild'),
+        (r'\bkiddo\b', 'k.iddo'),
+        (r'\bkids\b', 'k.ids'),
+        (r'\bkid\b', 'k.id'),
+        (r'\bbloodied\b', 'bl.oodied'),
+        (r'\bbloody\b', 'bl.oody'),
+        (r'\bblood\b', 'bl.ood'),
+        (r'\bgorier\b', 'g.orier'),
+        (r'\bgory\b', 'g.ory'),
+        (r'\bgore\b', 'g.ore'),
+        (r'\bdeathly\b', 'de.athly'),
+        (r'\bdeaths\b', 'de.aths'),
+        (r'\bdeath\b', 'de.ath'),
+    ]
     
-    for pattern, replacement in bypass_words.items():
-        text = re.sub(pattern, lambda m: replacement.replace('\\1', m.group(1) or ''), text, flags=re.IGNORECASE)
+    for pattern, replacement in bypass_patterns:
+        text = re.sub(pattern, replacement, text, flags=re.IGNORECASE)
     
     return text
 
 def apply_strong_bypass(text):
     """Сильный обход - Unicode модификаторы"""
-    bypass_words = {
-        r'\bsex(?:ual|ually)?\b': "s̵e̵x̵\1",
-        r'\bporn(?:ographic|ography)?\b': "p̵o̵r̵n̵\1",
-        r'\bnud(?:e|ity)\b': "n̵u̵d̵e̵\1",
-        r'\bnaked(?:ness)?\b': "n̵a̵k̵e̵d̵\1",
-        r'\bfuck(?:ing|ed|er)?\b': "f̵u̵c̵k̵\1",
-        r'\bpenis(?:es)?\b': "p̵e̵n̵i̵s̵\1",
-        r'\bvagin(?:a|al)\b': "v̵a̵g̵i̵n̵a̵\1",
-        r'\bkill(?:ing|ed|er)?\b': "k̵i̵l̵l̵\1",
-        r'\bmurder(?:ing|ed|er|ous)?\b': "m̵u̵r̵d̵e̵r̵\1",
-        r'\bviolen(?:t|ce)\b': "v̵i̵o̵l̵e̵n̵c̵e̵\1",
-        r'\brap(?:e|ing|ed|ist)\b': "r̵a̵p̵e̵\1",
-        r'\btortur(?:e|ing|ed)\b': "t̵o̵r̵t̵u̵r̵e̵\1",
-        r'\bchild(?:ren)?\b': "c̵h̵i̵l̵d̵\1",
-        r'\bkid(?:s|do)?\b': "k̵i̵d̵\1",
-        r'\bblood(?:y|ied)?\b': "b̵l̵o̵o̵d̵\1",
-        r'\bgor(?:e|y|ier)\b': "g̵o̵r̵e̵\1",
-        r'\bdeath(?:s|ly)?\b': "d̵e̵a̵t̵h̵\1",
-    }
+    bypass_patterns = [
+        (r'\bsexually\b', 's̵e̵x̵u̵a̵l̵l̵y̵'),
+        (r'\bsexual\b', 's̵e̵x̵u̵a̵l̵'),
+        (r'\bsex\b', 's̵e̵x̵'),
+        (r'\bpornography\b', 'p̵o̵r̵n̵o̵g̵r̵a̵p̵h̵y̵'),
+        (r'\bpornographic\b', 'p̵o̵r̵n̵o̵g̵r̵a̵p̵h̵i̵c̵'),
+        (r'\bporn\b', 'p̵o̵r̵n̵'),
+        (r'\bnudity\b', 'n̵u̵d̵i̵t̵y̵'),
+        (r'\bnude\b', 'n̵u̵d̵e̵'),
+        (r'\bnakedness\b', 'n̵a̵k̵e̵d̵n̵e̵s̵s̵'),
+        (r'\bnaked\b', 'n̵a̵k̵e̵d̵'),
+        (r'\bfucking\b', 'f̵u̵c̵k̵i̵n̵g̵'),
+        (r'\bfucked\b', 'f̵u̵c̵k̵e̵d̵'),
+        (r'\bfucker\b', 'f̵u̵c̵k̵e̵r̵'),
+        (r'\bfuck\b', 'f̵u̵c̵k̵'),
+        (r'\bpenises\b', 'p̵e̵n̵i̵s̵e̵s̵'),
+        (r'\bpenis\b', 'p̵e̵n̵i̵s̵'),
+        (r'\bvaginal\b', 'v̵a̵g̵i̵n̵a̵l̵'),
+        (r'\bvagina\b', 'v̵a̵g̵i̵n̵a̵'),
+        (r'\bkilling\b', 'k̵i̵l̵l̵i̵n̵g̵'),
+        (r'\bkilled\b', 'k̵i̵l̵l̵e̵d̵'),
+        (r'\bkiller\b', 'k̵i̵l̵l̵e̵r̵'),
+        (r'\bkill\b', 'k̵i̵l̵l̵'),
+        (r'\bmurderous\b', 'm̵u̵r̵d̵e̵r̵o̵u̵s̵'),
+        (r'\bmurderer\b', 'm̵u̵r̵d̵e̵r̵e̵r̵'),
+        (r'\bmurdering\b', 'm̵u̵r̵d̵e̵r̵i̵n̵g̵'),
+        (r'\bmurdered\b', 'm̵u̵r̵d̵e̵r̵e̵d̵'),
+        (r'\bmurder\b', 'm̵u̵r̵d̵e̵r̵'),
+        (r'\bviolence\b', 'v̵i̵o̵l̵e̵n̵c̵e̵'),
+        (r'\bviolent\b', 'v̵i̵o̵l̵e̵n̵t̵'),
+        (r'\brapist\b', 'r̵a̵p̵i̵s̵t̵'),
+        (r'\braping\b', 'r̵a̵p̵i̵n̵g̵'),
+        (r'\braped\b', 'r̵a̵p̵e̵d̵'),
+        (r'\brape\b', 'r̵a̵p̵e̵'),
+        (r'\btorturing\b', 't̵o̵r̵t̵u̵r̵i̵n̵g̵'),
+        (r'\btortured\b', 't̵o̵r̵t̵u̵r̵e̵d̵'),
+        (r'\btorture\b', 't̵o̵r̵t̵u̵r̵e̵'),
+        (r'\bchildren\b', 'c̵h̵i̵l̵d̵r̵e̵n̵'),
+        (r'\bchild\b', 'c̵h̵i̵l̵d̵'),
+        (r'\bkiddo\b', 'k̵i̵d̵d̵o̵'),
+        (r'\bkids\b', 'k̵i̵d̵s̵'),
+        (r'\bkid\b', 'k̵i̵d̵'),
+        (r'\bbloodied\b', 'b̵l̵̵o̵o̵d̵i̵e̵d̵'),
+        (r'\bbloody\b', 'b̵l̵o̵o̵d̵y̵'),
+        (r'\bblood\b', 'b̵l̵o̵o̵d̵'),
+        (r'\bgorier\b', 'g̵o̵r̵i̵e̵r̵'),
+        (r'\bgory\b', 'g̵o̵r̵y̵'),
+        (r'\bgore\b', 'g̵o̵r̵e̵'),
+        (r'\bdeathly\b', 'd̵e̵a̵t̵h̵l̵y̵'),
+        (r'\bdeaths\b', 'd̵e̵a̵t̵h̵s̵'),
+        (r'\bdeath\b', 'd̵e̵a̵t̵h̵'),
+    ]
     
-    for pattern, replacement in bypass_words.items():
-        text = re.sub(pattern, lambda m: replacement.replace('\\1', m.group(1) or ''), text, flags=re.IGNORECASE)
+    for pattern, replacement in bypass_patterns:
+        text = re.sub(pattern, replacement, text, flags=re.IGNORECASE)
     
     return text
 
+# ИСПРАВЛЕНО: Декодирование теперь использует те же паттерны и происходит в обратном порядке
+# (от более длинных к более коротким), чтобы избежать неправильных замен
 def decode_bypassed_text(text):
     """Декодирует обход цензуры обратно"""
     if not text:
         return text
     
     # Обратные замены для всех типов обхода
-    reverse_mappings = {
-        # Strong bypass
-        "s̵e̵x̵": "sex", "p̵o̵r̵n̵": "porn", "n̵u̵d̵e̵": "nude",
-        "n̵a̵k̵e̵d̵": "naked", "f̵u̵c̵k̵": "fuck", "p̵e̵n̵i̵s̵": "penis",
-        "v̵a̵g̵i̵n̵a̵": "vagina", "k̵i̵l̵l̵": "kill", "m̵u̵r̵d̵e̵r̵": "murder",
-        "v̵i̵o̵l̵e̵n̵c̵e̵": "violence", "r̵a̵p̵e̵": "rape", "t̵o̵r̵t̵u̵r̵e̵": "torture",
-        "c̵h̵i̵l̵d̵": "child", "k̵i̵d̵": "kid", "b̵l̵o̵o̵d̵": "blood",
-        "d̵e̵a̵t̵h̵": "death",
+    # Порядок важен: сначала обрабатываем более длинные варианты, потом короткие
+    reverse_mappings = [
+        # Strong bypass - обрабатываем от длинных к коротким
+        ("s̵e̵x̵u̵a̵l̵l̵y̵", "sexually"),
+        ("s̵e̵x̵u̵a̵l̵", "sexual"),
+        ("s̵e̵x̵", "sex"),
+        ("p̵o̵r̵n̵o̵g̵r̵a̵p̵h̵y̵", "pornography"),
+        ("p̵o̵r̵n̵o̵g̵r̵a̵p̵h̵i̵c̵", "pornographic"),
+        ("p̵o̵r̵n̵", "porn"),
+        ("n̵u̵d̵i̵t̵y̵", "nudity"),
+        ("n̵u̵d̵e̵", "nude"),
+        ("n̵a̵k̵e̵d̵n̵e̵s̵s̵", "nakedness"),
+        ("n̵a̵k̵e̵d̵", "naked"),
+        ("f̵u̵c̵k̵i̵n̵g̵", "fucking"),
+        ("f̵u̵c̵k̵e̵d̵", "fucked"),
+        ("f̵u̵c̵k̵e̵r̵", "fucker"),
+        ("f̵u̵c̵k̵", "fuck"),
+        ("p̵e̵n̵i̵s̵e̵s̵", "penises"),
+        ("p̵e̵n̵i̵s̵", "penis"),
+        ("v̵a̵g̵i̵n̵a̵l̵", "vaginal"),
+        ("v̵a̵g̵i̵n̵a̵", "vagina"),
+        ("k̵i̵l̵l̵i̵n̵g̵", "killing"),
+        ("k̵i̵l̵l̵e̵d̵", "killed"),
+        ("k̵i̵l̵l̵e̵r̵", "killer"),
+        ("k̵i̵l̵l̵", "kill"),
+        ("m̵u̵r̵d̵e̵r̵o̵u̵s̵", "murderous"),
+        ("m̵u̵r̵d̵e̵r̵e̵r̵", "murderer"),
+        ("m̵u̵r̵d̵e̵r̵i̵n̵g̵", "murdering"),
+        ("m̵u̵r̵d̵e̵r̵e̵d̵", "murdered"),
+        ("m̵u̵r̵d̵e̵r̵", "murder"),
+        ("v̵i̵o̵l̵e̵n̵c̵e̵", "violence"),
+        ("v̵i̵o̵l̵e̵n̵t̵", "violent"),
+        ("r̵a̵p̵i̵s̵t̵", "rapist"),
+        ("r̵a̵p̵i̵n̵g̵", "raping"),
+        ("r̵a̵p̵e̵d̵", "raped"),
+        ("r̵a̵p̵e̵", "rape"),
+        ("t̵o̵r̵t̵u̵r̵i̵n̵g̵", "torturing"),
+        ("t̵o̵r̵t̵u̵r̵e̵d̵", "tortured"),
+        ("t̵o̵r̵t̵u̵r̵e̵", "torture"),
+        ("c̵h̵i̵l̵d̵r̵e̵n̵", "children"),
+        ("c̵h̵i̵l̵d̵", "child"),
+        ("k̵i̵d̵d̵o̵", "kiddo"),
+        ("k̵i̵d̵s̵", "kids"),
+        ("k̵i̵d̵", "kid"),
+        ("b̵l̵o̵o̵d̵i̵e̵d̵", "bloodied"),
+        ("b̵l̵o̵o̵d̵y̵", "bloody"),
+        ("b̵l̵o̵o̵d̵", "blood"),
+        ("g̵o̵r̵i̵e̵r̵", "gorier"),
+        ("g̵o̵r̵y̵", "gory"),
+        ("g̵o̵r̵e̵", "gore"),
+        ("d̵e̵a̵t̵h̵l̵y̵", "deathly"),
+        ("d̵e̵a̵t̵h̵s̵", "deaths"),
+        ("d̵e̵a̵t̵h̵", "death"),
+        
         # Medium bypass
-        "s.ex": "sex", "p.orn": "porn", "n.ude": "nude", "n.aked": "naked",
-        "f.uck": "fuck", "pe.nis": "penis", "va.gina": "vagina",
-        "k.ill": "kill", "mur.der": "murder", "vio.lence": "violence",
-        "r.ape": "rape", "tor.ture": "torture", "ch.ild": "child",
-        "k.id": "kid", "bl.ood": "blood", "de.ath": "death",
+        ("s.exually", "sexually"),
+        ("s.exual", "sexual"),
+        ("s.ex", "sex"),
+        ("p.ornography", "pornography"),
+        ("p.ornographic", "pornographic"),
+        ("p.orn", "porn"),
+        ("n.udity", "nudity"),
+        ("n.ude", "nude"),
+        ("n.akedness", "nakedness"),
+        ("n.aked", "naked"),
+        ("f.ucking", "fucking"),
+        ("f.ucked", "fucked"),
+        ("f.ucker", "fucker"),
+        ("f.uck", "fuck"),
+        ("pe.nises", "penises"),
+        ("pe.nis", "penis"),
+        ("va.ginal", "vaginal"),
+        ("va.gina", "vagina"),
+        ("k.illing", "killing"),
+        ("k.illed", "killed"),
+        ("k.iller", "killer"),
+        ("k.ill", "kill"),
+        ("mur.derous", "murderous"),
+        ("mur.derer", "murderer"),
+        ("mur.dering", "murdering"),
+        ("mur.dered", "murdered"),
+        ("mur.der", "murder"),
+        ("vio.lence", "violence"),
+        ("vio.lent", "violent"),
+        ("r.apist", "rapist"),
+        ("r.aping", "raping"),
+        ("r.aped", "raped"),
+        ("r.ape", "rape"),
+        ("tor.turing", "torturing"),
+        ("tor.tured", "tortured"),
+        ("tor.ture", "torture"),
+        ("ch.ildren", "children"),
+        ("ch.ild", "child"),
+        ("k.iddo", "kiddo"),
+        ("k.ids", "kids"),
+        ("k.id", "kid"),
+        ("bl.oodied", "bloodied"),
+        ("bl.oody", "bloody"),
+        ("bl.ood", "blood"),
+        ("g.orier", "gorier"),
+        ("g.ory", "gory"),
+        ("g.ore", "gore"),
+        ("de.athly", "deathly"),
+        ("de.aths", "deaths"),
+        ("de.ath", "death"),
+        
         # Light bypass
-        "s ex": "sex", "p orn": "porn", "nu de": "nude", "na ked": "naked",
-        "f uck": "fuck", "pe nis": "penis", "va gina": "vagina",
-        "k ill": "kill", "mur der": "murder", "vio lence": "violence",
-        "r ape": "rape", "tor ture": "torture", "chi ld": "child",
-        "k id": "kid", "blo od": "blood", "g ore": "gore", "de ath": "death",
-    }
+        ("s exually", "sexually"),
+        ("s exual", "sexual"),
+        ("s ex", "sex"),
+        ("p ornography", "pornography"),
+        ("p ornographic", "pornographic"),
+        ("p orn", "porn"),
+        ("nu dity", "nudity"),
+        ("nu de", "nude"),
+        ("na kedness", "nakedness"),
+        ("na ked", "naked"),
+        ("f ucking", "fucking"),
+        ("f ucked", "fucked"),
+        ("f ucker", "fucker"),
+        ("f uck", "fuck"),
+        ("pe nises", "penises"),
+        ("pe nis", "penis"),
+        ("va ginal", "vaginal"),
+        ("va gina", "vagina"),
+        ("k illing", "killing"),
+        ("k illed", "killed"),
+        ("k iller", "killer"),
+        ("k ill", "kill"),
+        ("mur derous", "murderous"),
+        ("mur derer", "murderer"),
+        ("mur dering", "murdering"),
+        ("mur dered", "murdered"),
+        ("mur der", "murder"),
+        ("vio lence", "violence"),
+        ("vio lent", "violent"),
+        ("r apist", "rapist"),
+        ("r aping", "raping"),
+        ("r aped", "raped"),
+        ("r ape", "rape"),
+        ("tor turing", "torturing"),
+        ("tor tured", "tortured"),
+        ("tor ture", "torture"),
+        ("chi ldren", "children"),
+        ("chi ld", "child"),
+        ("k iddo", "kiddo"),
+        ("k ids", "kids"),
+        ("k id", "kid"),
+        ("blo odied", "bloodied"),
+        ("blo ody", "bloody"),
+        ("blo od", "blood"),
+        ("g orier", "gorier"),
+        ("g ory", "gory"),
+        ("g ore", "gore"),
+        ("de athly", "deathly"),
+        ("de aths", "deaths"),
+        ("de ath", "death"),
+    ]
     
-    for pattern, replacement in reverse_mappings.items():
+    # Применяем замены в том же порядке (от длинных к коротким)
+    for pattern, replacement in reverse_mappings:
         text = text.replace(pattern, replacement)
     
     return text
 
 # ===== ДЕТЕКТОР КОМАНД ИЗ LOREBARY =====
+# ИСПРАВЛЕНО: Теперь функции рекурсивно обходят структуру данных
+# вместо сериализации всего объекта в JSON строку
+def search_in_structure(obj, search_func):
+    """Рекурсивно ищет в структуре данных"""
+    if isinstance(obj, dict):
+        for key, value in obj.items():
+            if search_func(key) or search_func(str(value)):
+                return True
+            if search_in_structure(value, search_func):
+                return True
+    elif isinstance(obj, list):
+        for item in obj:
+            if search_in_structure(item, search_func):
+                return True
+    elif isinstance(obj, str):
+        return search_func(obj)
+    return False
+
 def check_for_tag(body, tag):
     """Проверяет наличие тега в запросе"""
     if not body:
         return False
-    try:
-        full_text = json.dumps(body)
-        return tag in full_text
-    except (TypeError, ValueError):
-        logger.warning("Error serializing body for tag check")
-        return False
+    return search_in_structure(body, lambda text: tag in str(text))
 
 def extract_bypass_level(body):
     """Извлекает уровень обхода цензуры"""
     if not body:
         return "NO"
-    try:
-        full_text = json.dumps(body)
-    except (TypeError, ValueError):
-        logger.warning("Error serializing body for bypass extraction")
-        return "NO"
     
     bypass_pattern = r'<BYPASS=(SYSTEM|LOW|MEDIUM|STRONG)>'
-    match = re.search(bypass_pattern, full_text, re.IGNORECASE)
+    found_level = {"level": "NO"}
     
-    if match:
-        return match.group(1).upper()
+    def search_bypass(text):
+        match = re.search(bypass_pattern, str(text), re.IGNORECASE)
+        if match:
+            found_level["level"] = match.group(1).upper()
+            return True
+        return False
     
-    return "NO"
+    search_in_structure(body, search_bypass)
+    return found_level["level"]
 
 def extract_custom_content(body, start_tag, end_tag):
     """Извлекает кастомный контент между тегами"""
     if not body:
         return None
-    try:
-        full_text = json.dumps(body)
-    except (TypeError, ValueError):
-        logger.warning("Error serializing body for custom content extraction")
-        return None
     
-    pattern = f"{start_tag}(.*?){end_tag}"
-    match = re.search(pattern, full_text, re.DOTALL)
+    pattern = f"{re.escape(start_tag)}(.*?){re.escape(end_tag)}"
+    found_content = {"content": None}
     
-    if match:
-        content = match.group(1)
-        # Убираем escape символы
-        content = content.replace('\\"', '"').replace('\\n', '\n')
-        return content
+    def search_content(text):
+        match = re.search(pattern, str(text), re.DOTALL)
+        if match:
+            found_content["content"] = match.group(1).strip()
+            return True
+        return False
     
-    return None
+    search_in_structure(body, search_content)
+    return found_content["content"]
 
 def extract_chance_from_command(body, command, default_value):
     """Извлекает шанс срабатывания из команды"""
     if not body:
         return default_value
-    try:
-        full_text = json.dumps(body)
-    except (TypeError, ValueError):
-        logger.warning("Error serializing body for chance extraction")
-        return default_value
     
-    pattern = f"{command}=1:(\\d+)"
-    match = re.search(pattern, full_text, re.IGNORECASE)
+    pattern = f"{re.escape(command)}=1:(\\d+)"
+    found_chance = {"chance": default_value}
     
-    if match:
-        value = int(match.group(1))
-        return value if value > 0 else default_value
+    def search_chance(text):
+        match = re.search(pattern, str(text), re.IGNORECASE)
+        if match:
+            value = int(match.group(1))
+            found_chance["chance"] = value if value > 0 else default_value
+            return True
+        return False
     
-    return default_value
+    search_in_structure(body, search_chance)
+    return found_chance["chance"]
 
 def detect_spicy_content(text):
     """Определяет наличие spicy контента"""
@@ -443,7 +699,7 @@ def format_response_text(text):
         return apply_hard_formatting(text)
 
 def apply_soft_formatting(text):
-    """Мягкое форматирование"""
+    """Мягкое форматирование - убирает избыточные пустые строки"""
     lines = text.split('\n')
     formatted_lines = []
     
@@ -454,7 +710,7 @@ def apply_soft_formatting(text):
         elif formatted_lines:  # Сохраняем пустые строки между блоками
             formatted_lines.append('')
     
-    # Убираем множественные пустые строки
+    # Убираем множественные пустые строки подряд
     result = []
     prev_empty = False
     for line in formatted_lines:
@@ -469,50 +725,62 @@ def apply_soft_formatting(text):
     return '\n'.join(result)
 
 def apply_medium_formatting(text):
-    """Среднее форматирование"""
+    """Среднее форматирование - дополнительно убирает лишние пробелы"""
     text = apply_soft_formatting(text)
-    # Дополнительно: убираем лишние пробелы в строках
+    # Убираем лишние пробелы в начале и конце каждой строки
     return '\n'.join(line.strip() for line in text.split('\n'))
 
 def apply_hard_formatting(text):
-    """Жесткое форматирование"""
+    """Жесткое форматирование - максимально сжимает текст"""
     text = apply_medium_formatting(text)
-    # Дополнительно: сжимаем текст, убирая все лишние строки
+    # Убираем все пустые строки полностью
     return '\n'.join(line for line in text.split('\n') if line.strip())
 
 def clean_response_text(text):
-    """Очистка текста от служебных меток"""
+    """Очистка текста от служебных меток и артефактов"""
     if not text:
         return text
     
-    # Убираем timestamps
+    # Убираем timestamps вида [TS:...]
     text = re.sub(r'\[TS:[^\]]+\]\s*', '', text)
     
-    # Убираем длинный паттерн правил
-    long_pattern = r"""{{char}} will strictly NEVER speak for {{user}} or describe actions as {{user}} and will allow {{user}} to dictate their own actions. {{char}} will speak, roleplay, and write in third-person view. Each reply from {{char}} will be different, and {{char}} will not repeat similar replies. I will never play, control or dictate {{user}}'s actions, thoughts, or feelings."""
-    text = text.replace(long_pattern, '')
+    # Убираем длинный паттерн правил, который иногда попадает в ответ
+    long_pattern = r'{{char}} will strictly NEVER speak for {{user}} or describe actions as {{user}} and will allow {{user}} to dictate their own actions\. {{char}} will speak, roleplay, and write in third-person view\. Each reply from {{char}} will be different, and {{char}} will not repeat similar replies\. I will never play, control or dictate {{user}}\'s actions, thoughts, or feelings\.'
+    text = re.sub(long_pattern, '', text, flags=re.IGNORECASE | re.DOTALL)
     
-    # Убираем короткий паттерн
+    # Убираем короткий паттерн с {{char}} и {{user}}
     text = re.sub(r'-\s*\{\{(char|user)\}\}\s*[:.]?', '', text)
     
-    # Убираем (Narrating...)
+    # Убираем метку (Narrating...)
     text = re.sub(r'\(Narrating\.{3}\)', '', text, flags=re.IGNORECASE)
     
     return text.strip()
 
 class KeyBalancer:
-    """Балансировщик ключей с учетом ошибок и cooldown."""
+    """Балансировщик ключей с учетом ошибок и cooldown периода"""
     def __init__(self):
+        # Увеличенный cooldown период до 15 минут
         self.cooldown_period = timedelta(minutes=15)
 
     def get_best_key(self):
+        """Выбирает лучший доступный ключ для использования"""
         now = datetime.now()
+        
+        # Сначала пытаемся найти ключи, которые не имеют ошибок и прошел cooldown
         available_keys = [
             k for k, v in key_usage.items()
-            if v['errors'] < 3 and (v['last_used'] is None or now - datetime.fromisoformat(v['last_used']) > self.cooldown_period)
+            if v['errors'] < 3 and (
+                v['last_used'] is None or 
+                now - datetime.fromisoformat(v['last_used']) > self.cooldown_period
+            )
         ]
+        
+        # Если нет доступных ключей, используем все (крайняя мера)
         if not available_keys:
+            logger.warning("No keys available after cooldown, using all keys")
             available_keys = GEMINI_KEYS
+        
+        # Выбираем ключ с наименьшим количеством запросов
         key = min(available_keys, key=lambda k: key_usage[k]['requests'])
         return key
 
@@ -520,7 +788,7 @@ balancer = KeyBalancer()
 
 # ===== SAFETY SETTINGS =====
 def get_safety_settings():
-    """Возвращает настройки безопасности (отключены)"""
+    """Возвращает настройки безопасности (все отключены для максимальной свободы)"""
     return [
         {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
         {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
@@ -532,7 +800,7 @@ def get_safety_settings():
 # ===== ENDPOINTS =====
 @app.route('/v1/models', methods=['GET'])
 def list_models():
-    """Возвращает список доступных моделей."""
+    """Возвращает список доступных моделей"""
     return jsonify({
         "object": "list",
         "data": [
@@ -551,36 +819,38 @@ def list_models():
 
 @app.route('/v1/engines', methods=['GET'])
 def list_engines():
-    """Аналог list_models для совместимости."""
+    """Аналог list_models для совместимости с разными клиентами"""
     return list_models()
 
 @app.route('/v1/completions', methods=['POST'])
 def completions():
-    """Перенаправление на chat_completions для совместимости с JanitorAI."""
-    logger.info("JanitorAI using chat format, redirecting to chat_completions")
+    """Перенаправление на chat_completions для совместимости с JanitorAI"""
+    logger.info("Received request at /v1/completions, redirecting to chat format")
     return chat_completions()
 
 @app.route('/v1/chat/completions', methods=['POST', 'OPTIONS'])
 def chat_completions():
-    """OpenAI-совместимый эндпоинт для генерации чата через Gemini."""
+    """OpenAI-совместимый эндпоинт для генерации чата через Gemini API"""
     if request.method == 'OPTIONS':
         return '', 200
 
     try:
         data = request.json
         if not data or 'messages' not in data:
-            return jsonify({"error": "Invalid request format"}), 400
+            return jsonify({"error": "Invalid request format, 'messages' field is required"}), 400
 
-        max_retries = len(GEMINI_KEYS)
+        max_retries = len(GEMINI_KEYS) * 2  # Больше попыток для надежности
         retry_count = 0
 
+        import time  # Для реализации exponential backoff
+
         while retry_count < max_retries:
-            # Получаем лучший ключ
+            # Получаем лучший доступный ключ
             gemini_key = balancer.get_best_key()
             key_usage[gemini_key]['requests'] += 1
             key_usage[gemini_key]['last_used'] = datetime.now().isoformat()
 
-            logger.info(f"Using key: {gemini_key[:20]}... | Requests: {key_usage[gemini_key]['requests']}")
+            logger.info(f"Using key: {gemini_key[:20]}... | Total requests: {key_usage[gemini_key]['requests']} | Errors: {key_usage[gemini_key]['errors']}")
 
             # ===== ОБРАБОТКА КОМАНД ИЗ LOREBARY =====
             jailbreak_active = check_for_tag(data, '<JAILBREAK=on>')
@@ -592,68 +862,79 @@ def chat_completions():
             has_medieval = check_for_tag(data, '<MEDIEVALMODE>')
             has_better_spice = check_for_tag(data, '<BETTERSPICEMODE>')
             has_slowburn = check_for_tag(data, '<SLOWBURN>')
-            # Извлекаем параметры
+            
+            # Извлекаем параметры команд
             bypass_level = extract_bypass_level(data)
             custom_prefill = extract_custom_content(data, '<CUSTOMPREFILL>', '</CUSTOMPREFILL>')
             custom_ooc = extract_custom_content(data, '<CUSTOMOOC>', '</CUSTOMOOC>')
             autoplot_chance = extract_chance_from_command(data, '<AUTOPLOT-CHANCE', 15)
             spice_chance = extract_chance_from_command(data, '<BETTERSPICE-CHANCE', 20)
 
-            logger.info(f"Commands: JB={jailbreak_active}, Bypass={bypass_level}, AutoPlot={has_autoplot}, Medieval={has_medieval}")
+            logger.info(f"Active commands: Jailbreak={jailbreak_active}, Bypass={bypass_level}, AutoPlot={has_autoplot}, Medieval={has_medieval}, Spice={has_better_spice}, Slowburn={has_slowburn}")
 
-            # ===== ФОРМИРОВАНИЕ СООБЩЕНИЙ =====
+            # ===== ФОРМИРОВАНИЕ СООБЩЕНИЙ ДЛЯ GEMINI =====
             contents = []
             system_instruction = ""
 
-            # Добавляем джейлбрейк если активен
+            # Добавляем джейлбрейк если активирован
             if jailbreak_active:
                 system_instruction = JAILBREAK_TEXT
-                logger.info("✓ Jailbreak activated")
+                logger.info("✓ Jailbreak system instruction activated")
 
-            # Обработка сообщений
+            # Обработка всех сообщений из истории
             for i, msg in enumerate(data["messages"]):
                 role = "user" if msg["role"] == "user" else "model"
                 content = msg["content"]
                 
-                # Применяем обход цензуры к non-user сообщениям
-                if bypass_level != "NO" and role != "user":
+                # ИСПРАВЛЕНО: Применяем обход цензуры правильно
+                # Обход применяется только к non-user сообщениям
+                if bypass_level != "NO":
+                    # Для SYSTEM уровня обрабатываем только системные сообщения
                     if bypass_level == "SYSTEM" and msg["role"] == "system":
                         content = apply_bypass_to_text(content, "STRONG")
-                    elif bypass_level != "SYSTEM":
+                        logger.info(f"Applied STRONG bypass to system message")
+                    # Для остальных уровней обрабатываем все кроме user
+                    elif bypass_level != "SYSTEM" and role != "user":
                         content = apply_bypass_to_text(content, bypass_level)
+                        logger.info(f"Applied {bypass_level} bypass to {role} message")
                 
-                # Для последнего user сообщения добавляем OOC
+                # Для последнего user сообщения добавляем OOC инструкции
                 if role == "user" and i == len(data["messages"]) - 1 and not ooc_disabled:
                     ooc_text = get_ooc_instruction2()
                     
-                    # Добавляем специальные режимы
+                    # Проверяем и добавляем специальные режимы
                     if has_autoplot and random.randint(1, autoplot_chance) == 1:
                         ooc_text += get_autoplot_ooc()
-                        logger.info("⚡ AutoPlot triggered!")
+                        logger.info("⚡ AutoPlot instruction triggered!")
                     
                     if has_crazymode:
                         ooc_text += get_crazymode_ooc()
-                        logger.info("🎭 CrazyMode activated!")
+                        logger.info("🎭 CrazyMode instruction activated!")
                     
                     if has_medieval:
                         ooc_text += get_medieval_ooc()
-                        logger.info("🏰 Medieval mode activated!")
+                        logger.info("🏰 Medieval mode instruction activated!")
                     
                     if has_better_spice:
+                        # Проверяем либо наличие spicy контента, либо срабатывание шанса
                         if detect_spicy_content(content) or random.randint(1, spice_chance) == 1:
-                            ooc_text += get_better_spice_ooc()
-                            logger.info("🔥 Spice mode triggered!")
-                        
+                            ooc_text += get_random_spice_instruction() + get_better_spice_ooc()
+                            logger.info("🔥 Spice mode instruction triggered!")
+                    
                     if has_slowburn:
                         ooc_text += get_slowburn_ooc()
-                        logger.info("🕰️ Slowburn mode activated!")
+                        logger.info("🕰️ Slowburn mode instruction activated!")
                     
+                    # Добавляем кастомные OOC инструкции если есть
                     if custom_ooc:
                         ooc_text += f"\n[OOC: {custom_ooc}]"
+                        logger.info("📝 Custom OOC instruction added")
                     
+                    # Добавляем критически важную инструкцию в конец
                     ooc_text += get_ooc_instruction1()
                     content += ooc_text
                 
+                # Добавляем сформированное сообщение
                 contents.append({
                     "role": role,
                     "parts": [{"text": content}]
@@ -663,32 +944,38 @@ def chat_completions():
             if not prefill_disabled:
                 if custom_prefill:
                     prefill_text = custom_prefill
+                    logger.info("✓ Custom prefill added")
                 elif has_medieval:
                     prefill_text = get_medieval_prefill()
+                    logger.info("✓ Medieval prefill added")
                 else:
                     prefill_text = get_default_prefill()
+                    logger.info("✓ Default prefill added")
                 
                 contents.append({
                     "role": "model",
                     "parts": [{"text": prefill_text}]
                 })
-                logger.info("✓ Prefill added")
 
             # ===== НАСТРОЙКИ ГЕНЕРАЦИИ =====
+            # Получаем параметры из запроса или используем значения по умолчанию
             requested_tokens = data.get("max_tokens", DEFAULT_OUTPUT_TOKENS)
             max_output_tokens = max(2000, min(requested_tokens, MAX_OUTPUT_TOKENS))
             temperature = max(0.8, data.get("temperature", 1.0))
             top_p = max(0.9, data.get("top_p", 0.95))
 
+            # Формируем запрос к Gemini API
             gemini_data = {
                 "contents": contents,
             }
             
+            # Добавляем системную инструкцию если есть
             if system_instruction:
                 gemini_data["system_instruction"] = {
                     "parts": [{"text": system_instruction}]
                 }
             
+            # Настройки генерации
             gemini_data["generationConfig"] = {
                 "maxOutputTokens": max_output_tokens,
                 "temperature": temperature,
@@ -698,60 +985,92 @@ def chat_completions():
                 "frequencyPenalty": 0,
             }
             
+            # Настройки безопасности (отключены)
             gemini_data["safetySettings"] = get_safety_settings()
 
-            # ===== ОТПРАВКА К GEMINI =====
+            # ===== ОТПРАВКА ЗАПРОСА К GEMINI API =====
             try:
                 response = requests.post(
                     f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent?key={gemini_key}",
                     json=gemini_data,
                     headers={'Content-Type': 'application/json'},
-                    timeout=120,
+                    timeout=120,  # Увеличенный timeout для больших запросов
                     verify=certifi.where()
                 )
             except requests.Timeout:
-                logger.error(f"Timeout for key: {gemini_key}")
+                logger.error(f"Timeout occurred for key: {gemini_key[:20]}...")
                 key_usage[gemini_key]['errors'] += 1
+                # Exponential backoff перед следующей попыткой
+                backoff_time = min(2 ** retry_count, 60)  # Максимум 60 секунд
+                logger.info(f"Waiting {backoff_time} seconds before retry...")
+                time.sleep(backoff_time)
+                retry_count += 1
+                continue
+            except Exception as e:
+                logger.error(f"Request exception during request to Gemini: {e}")
+                key_usage[gemini_key]['errors'] += 1
+                backoff_time = min(2 ** retry_count, 60)
+                logger.info(f"Waiting {backoff_time} seconds before retry...")
+                time.sleep(backoff_time)
                 retry_count += 1
                 continue
 
+            # Обработка rate limit ошибки (429)
             if response.status_code == 429:
                 key_usage[gemini_key]['errors'] += 1
                 key_usage[gemini_key]['last_used'] = datetime.now().isoformat()
-                logger.warning(f"Rate limit for key: {gemini_key[:20]}... Trying next key.")
+                logger.warning(f"Rate limit hit for key: {gemini_key[:20]}... Switching to next key.")
+                backoff_time = min(2 ** retry_count, 60)
+                logger.info(f"Backing off for {backoff_time} seconds...")
+                time.sleep(backoff_time)
                 retry_count += 1
                 continue
 
+            # Обработка других ошибок API
             if response.status_code != 200:
                 key_usage[gemini_key]['errors'] += 1
-                logger.error(f"Gemini API error {response.status_code} for key: {gemini_key[:20]}...")
-                return jsonify({"error": f"Gemini API error: {response.status_code}"}), 500
+                logger.error(f"Gemini API returned error {response.status_code} for key: {gemini_key[:20]}...")
+                logger.error(f"Response body: {response.text[:500]}")
+                backoff_time = min(2 ** retry_count, 60)
+                logger.info(f"Backing off for {backoff_time} seconds...")
+                time.sleep(backoff_time)
+                retry_count += 1
+                continue
 
+            # Парсинг успешного ответа
             gemini_response = response.json()
 
+            # Проверяем структуру ответа
             if ('candidates' not in gemini_response or
                 not gemini_response['candidates'] or
                 'content' not in gemini_response['candidates'][0] or
-                'parts' not in gemini_response['candidates'][0]['content']):
-                logger.error(f"Invalid Gemini response structure")
-                return jsonify({"error": "Invalid response from Gemini API"}), 500
+                'parts' not in gemini_response['candidates'][0]['content'] or
+                not gemini_response['candidates'][0]['content']['parts']):
+                logger.error(f"Invalid response structure from Gemini API")
+                logger.error(f"Response: {json.dumps(gemini_response, indent=2)[:500]}")
+                return jsonify({"error": "Invalid response structure from Gemini API"}), 500
 
+            # Извлекаем текст ответа
             response_text = gemini_response["candidates"][0]["content"]["parts"][0]["text"]
 
-            # ===== ПОСТ-ОБРАБОТКА =====
-            # Декодируем обход цензуры
+            # ===== ПОСТ-ОБРАБОТКА ОТВЕТА =====
+            # Декодируем обход цензуры обратно в нормальный текст
             if bypass_level != "NO":
                 response_text = decode_bypassed_text(response_text)
+                logger.info(f"Decoded bypass level: {bypass_level}")
             
-            # Форматирование
+            # Применяем форматирование если включено
             if ENABLE_RESPONSE_FORMATTING or force_markdown:
                 response_text = format_response_text(response_text)
+                logger.info("Response formatting applied")
             
-            # Очистка
+            # Очищаем текст от служебных меток
             response_text = clean_response_text(response_text)
 
+            # Подсчитываем токены для ответа (примерная оценка)
             total_input_chars = sum(len(msg["content"]) for msg in data["messages"])
 
+            # Формируем ответ в формате OpenAI
             openai_format = {
                 "id": f"chatcmpl-{random.randint(1000,9999)}",
                 "object": "chat.completion",
@@ -766,36 +1085,48 @@ def chat_completions():
                     "finish_reason": "stop"
                 }],
                 "usage": {
-                    "prompt_tokens": total_input_chars // 4,
-                    "completion_tokens": len(response_text) // 4,
+                    "prompt_tokens": total_input_chars // 4,  # Примерная оценка
+                    "completion_tokens": len(response_text) // 4,  # Примерная оценка
                     "total_tokens": (total_input_chars + len(response_text)) // 4
                 }
             }
 
-            logger.info(f"✅ Success! Input: {total_input_chars} chars, Output: {len(response_text)} chars")
+            # Сбрасываем счётчик ошибок при успешном запросе
+            key_usage[gemini_key]['errors'] = 0
+
+            logger.info(f"✅ Request successful! Input: {total_input_chars} chars, Output: {len(response_text)} chars")
             return jsonify(openai_format)
 
+        # Если все попытки исчерпаны
+        logger.error("All retry attempts exhausted. All keys are rate-limited or in cooldown.")
+        return jsonify({"error": "All API keys are temporarily unavailable due to rate limits or errors. Please try again later."}), 429
+
     except Exception as e:
-        logger.exception(f"❌ Unexpected error: {e}")
-        return jsonify({"error": str(e)}), 500
+        logger.exception(f"❌ Unexpected error in chat_completions: {e}")
+        return jsonify({"error": f"Internal server error: {str(e)}"}), 500
 
 # ===== АУТЕНТИФИКАЦИЯ =====
 @app.before_request
 def authenticate():
+    """Проверяет авторизацию для защищённых эндпоинтов"""
+    # Пропускаем OPTIONS запросы (для CORS)
     if request.method == 'OPTIONS':
         return None
 
+    # Проверяем авторизацию только для API эндпоинтов
     if request.endpoint in ['chat_completions', 'list_models', 'completions']:
         auth_header = request.headers.get('Authorization')
         if not auth_header or not auth_header.startswith('Bearer '):
-            return jsonify({"error": "Authorization header required"}), 401
+            return jsonify({"error": "Authorization header with Bearer token is required"}), 401
+        
         api_key = auth_header.replace('Bearer ', '')
         if api_key != YOUR_MASTER_KEY:
-            return jsonify({"error": "Invalid API key"}), 401
+            return jsonify({"error": "Invalid API key provided"}), 401
 
 # ===== CORS =====
 @app.after_request
 def after_request(response):
+    """Добавляет CORS заголовки ко всем ответам"""
     response.headers.add('Access-Control-Allow-Origin', '*')
     response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
     response.headers.add('Access-Control-Allow-Methods', 'GET,POST,OPTIONS')
@@ -804,7 +1135,7 @@ def after_request(response):
 # ===== ИНФОРМАЦИЯ О МОДЕЛИ =====
 @app.route('/v1/model-info', methods=['GET'])
 def model_info():
-    """Информация о модели и возможностях."""
+    """Возвращает подробную информацию о модели и доступных возможностях"""
     return jsonify({
         "model": GEMINI_MODEL,
         "max_input_tokens": MAX_INPUT_TOKENS,
@@ -818,45 +1149,66 @@ def model_info():
             "anti_censorship": ENABLE_ANTI_CENSORSHIP
         },
         "commands": {
-            "<JAILBREAK=on>": "Активирует джейлбрейк",
-            "<BYPASS=LEVEL>": "Обход цензуры (SYSTEM/LOW/MEDIUM/STRONG)",
-            "<PREFILL-OFF>": "Отключает prefill",
-            "<CUSTOMPREFILL>text</CUSTOMPREFILL>": "Кастомный prefill",
-            "<OOCINJECTION-OFF>": "Отключает OOC инструкции",
-            "<CUSTOMOOC>text</CUSTOMOOC>": "Кастомные OOC инструкции",
-            "<FORCEMARKDOWN>": "Форсирует форматирование",
-            "<AUTOPLOT>": "Добавляет plot twist",
-            "<AUTOPLOT-CHANCE=1:XX>": "Шанс AutoPlot (по умолчанию 1:15)",
-            "<CRAZYMODE>": "Режим хаоса",
-            "<MEDIEVALMODE>": "Средневековый режим",
-            "<BETTERSPICEMODE>": "Режим spicy контента",
-            "<BETTERSPICE-CHANCE=1:XX>": "Шанс Spice (по умолчанию 1:20)",
-            "<SLOWBURN>": "Режим медленного развития отношений"
+            "<JAILBREAK=on>": "Активирует джейлбрейк систему с полным набором возможностей",
+            "<BYPASS=LEVEL>": "Обход цензуры с уровнями: SYSTEM, LOW, MEDIUM, STRONG",
+            "<PREFILL-OFF>": "Отключает автоматический prefill текст",
+            "<CUSTOMPREFILL>text</CUSTOMPREFILL>": "Использует кастомный prefill текст",
+            "<OOCINJECTION-OFF>": "Отключает автоматические OOC инструкции",
+            "<CUSTOMOOC>text</CUSTOMOOC>": "Добавляет кастомную OOC инструкцию",
+            "<FORCEMARKDOWN>": "Принудительно применяет форматирование к ответу",
+            "<AUTOPLOT>": "Добавляет инструкцию для создания plot twist",
+            "<AUTOPLOT-CHANCE=1:XX>": "Устанавливает шанс срабатывания AutoPlot (по умолчанию 1:15)",
+            "<CRAZYMODE>": "Активирует режим непредсказуемого хаоса",
+            "<MEDIEVALMODE>": "Устанавливает средневековый сеттинг со всеми особенностями эпохи",
+            "<BETTERSPICEMODE>": "Усиливает детализацию интимных сцен",
+            "<BETTERSPICE-CHANCE=1:XX>": "Устанавливает шанс срабатывания Spice режима (по умолчанию 1:20)",
+            "<SLOWBURN>": "Активирует режим медленного развития отношений"
+        },
+        "bypass_levels": {
+            "NO": "Обход отключён",
+            "SYSTEM": "Применяется только к системным сообщениям с максимальной силой",
+            "LOW": "Лёгкий обход с пробелами между буквами",
+            "MEDIUM": "Средний обход с точками между буквами",
+            "STRONG": "Сильный обход с использованием Unicode модификаторов"
         }
     })
 
 # ===== HEALTH CHECK =====
 @app.route('/health', methods=['GET'])
 def health():
-    """Проверка статуса сервиса."""
+    """Проверка работоспособности сервиса и статус ключей"""
+    # Подсчитываем статистику по ключам
+    total_requests = sum(v['requests'] for v in key_usage.values())
+    total_errors = sum(v['errors'] for v in key_usage.values())
+    healthy_keys = sum(1 for v in key_usage.values() if v['errors'] < 3)
+    
     return jsonify({
         "status": "ok",
-        "service": "Enhanced Gemini Proxy with Lorebary",
+        "service": "Enhanced Gemini Proxy with Lorebary Integration",
         "timestamp": datetime.now().isoformat(),
         "keys_available": len(GEMINI_KEYS),
+        "keys_healthy": healthy_keys,
+        "total_requests": total_requests,
+        "total_errors": total_errors,
         "features": {
             "jailbreak": True,
             "anti_censorship": ENABLE_ANTI_CENSORSHIP,
             "response_formatting": ENABLE_RESPONSE_FORMATTING,
             "formatting_aggressiveness": FORMATTING_AGGRESSIVENESS,
             "lorebary_commands": True
+        },
+        "model": GEMINI_MODEL,
+        "limits": {
+            "max_input_tokens": MAX_INPUT_TOKENS,
+            "max_output_tokens": MAX_OUTPUT_TOKENS,
+            "default_output_tokens": DEFAULT_OUTPUT_TOKENS
         }
     })
 
 # ===== ГЛАВНАЯ СТРАНИЦА =====
 @app.route('/')
 def home():
-    """Главная страница с информацией."""
+    """Главная страница с красивым интерфейсом и документацией"""
     return """
     <!DOCTYPE html>
     <html lang="en">
@@ -918,6 +1270,10 @@ def home():
                 padding: 30px;
                 border-radius: 15px;
                 box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+                transition: transform 0.3s ease;
+            }
+            .feature-card:hover {
+                transform: translateY(-5px);
             }
             .feature-icon {
                 font-size: 3rem;
@@ -946,6 +1302,10 @@ def home():
                 padding: 20px;
                 border-radius: 10px;
                 border-left: 4px solid #667eea;
+                transition: background 0.3s ease;
+            }
+            .command-item:hover {
+                background: #e9ecef;
             }
             .command-code {
                 font-family: 'Courier New', monospace;
@@ -965,6 +1325,7 @@ def home():
                 font-family: 'Courier New', monospace;
                 margin: 20px 0;
                 overflow-x: auto;
+                line-height: 1.6;
             }
             .footer {
                 text-align: center;
@@ -976,6 +1337,13 @@ def home():
                 font-size: 2rem;
                 margin-bottom: 25px;
                 color: #764ba2;
+            }
+            .warning {
+                background: #fff3cd;
+                border-left: 4px solid #ffc107;
+                padding: 20px;
+                margin: 20px 0;
+                border-radius: 10px;
             }
         </style>
     </head>
@@ -993,22 +1361,22 @@ def home():
                 <div class="feature-card">
                     <div class="feature-icon">🔓</div>
                     <h3 class="feature-title">Full Jailbreak</h3>
-                    <p>Complete jailbreak system from Lorebary with all NSFW capabilities</p>
+                    <p>Complete jailbreak system from Lorebary with comprehensive NSFW capabilities and character autonomy rules</p>
                 </div>
                 <div class="feature-card">
                     <div class="feature-icon">🛡️</div>
                     <h3 class="feature-title">Bypass Censorship</h3>
-                    <p>4 levels of censorship bypass (SYSTEM, LOW, MEDIUM, STRONG)</p>
+                    <p>Four levels of censorship bypass with proper encoding and decoding for maximum freedom</p>
                 </div>
                 <div class="feature-card">
                     <div class="feature-icon">⚡</div>
                     <h3 class="feature-title">Advanced Commands</h3>
-                    <p>AutoPlot, CrazyMode, Medieval Mode, Better Spice and more</p>
+                    <p>AutoPlot for dynamic storytelling, CrazyMode for chaos, Medieval Mode for historical accuracy, and more</p>
                 </div>
                 <div class="feature-card">
                     <div class="feature-icon">🎨</div>
                     <h3 class="feature-title">Smart Formatting</h3>
-                    <p>Automatic dialogue and thought formatting with custom prefills</p>
+                    <p>Automatic response formatting with customizable aggressiveness levels and clean output</p>
                 </div>
             </div>
 
@@ -1017,76 +1385,83 @@ def home():
                 <ul class="command-list">
                     <li class="command-item">
                         <span class="command-code">&lt;JAILBREAK=on&gt;</span>
-                        <p>Activates full jailbreak mode with all restrictions removed</p>
+                        <p>Activates the full jailbreak mode with all safety restrictions removed and comprehensive roleplay rules</p>
                     </li>
                     <li class="command-item">
                         <span class="command-code">&lt;BYPASS=LEVEL&gt;</span>
-                        <p>Bypass censorship (SYSTEM/LOW/MEDIUM/STRONG)</p>
+                        <p>Applies censorship bypass with levels: SYSTEM (only system messages), LOW (light spacing), MEDIUM (dot separation), STRONG (Unicode modifiers)</p>
                     </li>
                     <li class="command-item">
                         <span class="command-code">&lt;PREFILL-OFF&gt;</span>
-                        <p>Disables the prefill text</p>
+                        <p>Disables the automatic prefill text that normally appears at the start of responses</p>
                     </li>
                     <li class="command-item">
                         <span class="command-code">&lt;CUSTOMPREFILL&gt;text&lt;/CUSTOMPREFILL&gt;</span>
-                        <p>Uses custom prefill text</p>
+                        <p>Uses your custom prefill text instead of the default one</p>
                     </li>
                     <li class="command-item">
                         <span class="command-code">&lt;OOCINJECTION-OFF&gt;</span>
-                        <p>Disables OOC instructions</p>
+                        <p>Disables automatic Out-Of-Character instructions that guide the AI behavior</p>
                     </li>
                     <li class="command-item">
                         <span class="command-code">&lt;CUSTOMOOC&gt;text&lt;/CUSTOMOOC&gt;</span>
-                        <p>Adds custom OOC instruction</p>
+                        <p>Adds your custom Out-Of-Character instruction to guide specific behaviors</p>
                     </li>
                     <li class="command-item">
                         <span class="command-code">&lt;FORCEMARKDOWN&gt;</span>
-                        <p>Forces markdown formatting check</p>
+                        <p>Forces markdown formatting check and cleanup on the response</p>
                     </li>
                     <li class="command-item">
                         <span class="command-code">&lt;AUTOPLOT&gt;</span>
-                        <p>Adds plot twist instruction</p>
+                        <p>Randomly triggers plot twist instructions to keep the story dynamic and unpredictable</p>
                     </li>
                     <li class="command-item">
                         <span class="command-code">&lt;AUTOPLOT-CHANCE=1:XX&gt;</span>
-                        <p>Sets AutoPlot trigger chance (default: 1:15)</p>
+                        <p>Sets the probability of AutoPlot triggering (default is 1:15, meaning roughly one in fifteen responses)</p>
                     </li>
                     <li class="command-item">
                         <span class="command-code">&lt;CRAZYMODE&gt;</span>
-                        <p>Adds unpredictable chaotic elements</p>
+                        <p>Instructs the AI to introduce unpredictable chaotic elements and dramatic turns</p>
                     </li>
                     <li class="command-item">
                         <span class="command-code">&lt;MEDIEVALMODE&gt;</span>
-                        <p>Sets medieval setting with period-accurate customs</p>
+                        <p>Sets an authentic medieval setting with period-accurate customs, speech, beliefs, and social structures</p>
                     </li>
                     <li class="command-item">
                         <span class="command-code">&lt;BETTERSPICEMODE&gt;</span>
-                        <p>Enhances intimate scenes</p>
+                        <p>Enhances intimate scenes with more detailed descriptions of sensations, movements, and atmosphere</p>
                     </li>
                     <li class="command-item">
                         <span class="command-code">&lt;BETTERSPICE-CHANCE=1:XX&gt;</span>
-                        <p>Sets Spice trigger chance (default: 1:20)</p>
+                        <p>Sets the probability of Spice mode triggering automatically (default is 1:20)</p>
+                    </li>
+                    <li class="command-item">
+                        <span class="command-code">&lt;SLOWBURN&gt;</span>
+                        <p>Focuses on gradual relationship development with emphasis on emotional connection before physical intimacy</p>
                     </li>
                 </ul>
             </div>
 
             <div class="commands-section">
-                <h2>🚀 Quick Start</h2>
-                <div class="code-block">
-// Setup in SillyTavern/JanitorAI:<br>
-API URL: https://your-server.com/v1<br>
-API Key: your-master-key<br>
+                <h2>🚀 Quick Start Guide</h2>
+                <div class="code-block">// Configuration for SillyTavern/JanitorAI:<br>
+API URL: https://your-server-url.com/v1<br>
+API Key: your-master-key-here<br>
 Model: gemini-2.5-pro<br><br>
-// Example with commands:<br>
-User: &lt;JAILBREAK=on&gt;&lt;BYPASS=STRONG&gt; Your prompt here
+// Example request with multiple commands:<br>
+User: &lt;JAILBREAK=on&gt;&lt;BYPASS=STRONG&gt;&lt;AUTOPLOT&gt; Your roleplay prompt here<br><br>
+// Commands can be combined freely to achieve desired effects</div>
+                
+                <div class="warning">
+                    <strong>⚠️ Important Notes:</strong> This proxy removes safety filters and allows unrestricted content generation. Commands are processed recursively through the entire request structure for maximum reliability. All bypass modifications are automatically decoded in the final response for clean, readable output.
                 </div>
             </div>
 
             <div class="footer">
                 <p style="font-size: 1.2rem; margin-bottom: 10px;">
-                    💜 Powered by Gemini 2.5 Pro + Lorebary Integration
+                    💜 Powered by Gemini 2.5 Pro with Lorebary Integration
                 </p>
-                <p>© 2025 Enhanced Gemini Proxy • All Rights Reserved</p>
+                <p>© 2025 Enhanced Gemini Proxy • Technical Issues Fixed</p>
             </div>
         </div>
     </body>
@@ -1094,17 +1469,32 @@ User: &lt;JAILBREAK=on&gt;&lt;BYPASS=STRONG&gt; Your prompt here
     """
 
 if __name__ == '__main__':
-    print("🚀 Enhanced Gemini Proxy with Lorebary starting...")
-    print(f"📊 Available keys: {len(GEMINI_KEYS)}")
-    print(f"🔑 Your master key: {YOUR_MASTER_KEY[:10]}...")
+    # Сбрасываем статистику использования ключей при запуске
+    for key in key_usage:
+        key_usage[key]['errors'] = 0
+        key_usage[key]['requests'] = 0
+        key_usage[key]['last_used'] = None
+
+    print("=" * 60)
+    print("🚀 Enhanced Gemini Proxy with Lorebary Integration")
+    print("=" * 60)
+    print(f"📊 Available API keys: {len(GEMINI_KEYS)}")
+    print(f"🔑 Master key: {YOUR_MASTER_KEY[:10]}...")
     print(f"🤖 Model: {GEMINI_MODEL}")
-    print(f"📖 Context: {MAX_INPUT_TOKENS:,} tokens")
-    print(f"📝 Output: {MAX_OUTPUT_TOKENS:,} tokens")
-    print(f"🔓 Jailbreak: Available")
-    print(f"🛡️ Bypass: Available (4 levels)")
-    print(f"⚡ Commands: AutoPlot, CrazyMode, Medieval, Spice")
-    print(f"📝 Response formatting: {ENABLE_RESPONSE_FORMATTING}")
-    print(f"🎛️ Formatting mode: {FORMATTING_AGGRESSIVENESS}")
+    print(f"📖 Max input tokens: {MAX_INPUT_TOKENS:,}")
+    print(f"📝 Max output tokens: {MAX_OUTPUT_TOKENS:,}")
+    print(f"📝 Default output tokens: {DEFAULT_OUTPUT_TOKENS:,}")
+    print("=" * 60)
+    print("Features enabled:")
+    print(f"  🔓 Jailbreak: Available")
+    print(f"  🛡️ Bypass censorship: {ENABLE_ANTI_CENSORSHIP}")
+    print(f"  📝 Response formatting: {ENABLE_RESPONSE_FORMATTING}")
+    print(f"  🎛️ Formatting aggressiveness: {FORMATTING_AGGRESSIVENESS}")
+    print(f"  ⚡ Special modes: AutoPlot, CrazyMode, Medieval, Spice, Slowburn")
+    print("=" * 60)
 
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=False)
+
+
+
