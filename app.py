@@ -618,9 +618,10 @@ def chat_completions():
                     if detect_spicy_content(content) or random.randint(1, spice_chance) == 1:
                         ooc_text += get_better_spice_ooc()
                         logger.info("🔥 Spice mode triggered!")
-            if has_slowburn:
-                   ooc_text += get_slowburn_ooc()
-                      logger.info("🕰️ Slowburn mode activated!")
+                        
+               if has_slowburn:
+    ooc_text += get_slowburn_ooc()
+    logger.info("🕰️ Slowburn mode activated!")
                 
                 if custom_ooc:
                     ooc_text += f"\n[OOC: {custom_ooc}]"
